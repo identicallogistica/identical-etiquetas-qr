@@ -1,13 +1,13 @@
 # Identical — Etiquetado QR
 
-Sistema HTML de etiquetas y lectura QR para Clínica Dental Identical.
-
 Sistema publicado: https://identicallogistica.github.io/identical-etiquetas-qr/
 
-Entrada: `index.html`. GitHub Pages utiliza la rama `main`, carpeta raíz, con HTTPS.
+Entrada: `index.html`. GitHub Pages utiliza `main`, carpeta raíz y HTTPS. El diseño y la impresión original se conservan.
 
-Base, historial y perfiles se guardan en cada navegador. No incluye backend.
+Los productos se comparten gratuitamente con Google Sheets y Apps Script. El catálogo puede consultarse por Internet. Publicar cambios exige la cuenta `identicallogistica@gmail.com` y confirmación en Google. El historial de impresión y los perfiles de rollo permanecen en cada navegador.
 
-El modo temporal subdivide el rollo actual de 76 × 76 mm en 1, 2, 4 o 6 partes. El modo nativo imprime una etiqueta por cada etiqueta física; los tamaños futuros se configuran cuando se conozcan sus medidas.
+Para trasladar la base anterior, abre Productos en la laptop que la contiene y toca Compartir mi base actual → Publicar base para todos una sola vez. Los demás dispositivos reciben la base automáticamente. Guardar base compartida agrega o actualiza por código; reemplazar toda la base es una opción separada. Cada publicación conserva un respaldo. No se incluyen stock, movimientos ni Kardex.
 
-En Windows utiliza la Xprinter instalada y sus ajustes actuales. En Android se invoca la impresión del navegador y también se puede descargar un PDF. La conexión de la XP-P323B al servicio de impresión Android debe verificarse con el teléfono y la impresora físicos; no se asume control Bluetooth directo desde JavaScript.
+El modo temporal subdivide el rollo actual de 76 × 76 mm en 1, 2, 4 o 6 partes. El modo nativo imprime una etiqueta por cada etiqueta física; las medidas futuras se configuran cuando se conozcan.
+
+En Windows utiliza la Xprinter instalada. Android invoca la impresión del navegador y permite descargar un PDF. La conexión física de la XP-P323B a un servicio gratuito de impresión Android aún requiere validación con el teléfono y la impresora; no se controla Bluetooth directamente desde JavaScript.
