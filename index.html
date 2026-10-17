@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Identical | Sistema de Etiquetado QR</title>
+<style>
+.editor{margin-top:18px}.editor summary{font-size:14px}.editor .toggle{display:flex;align-items:center;gap:8px;margin:14px 0}.editor input[type=checkbox]{width:auto;flex:none}.field-row{padding:12px 0;border-bottom:1px solid #dae5ef}.field-row .field-name{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}.field-row .config-fields{grid-template-columns:repeat(2,minmax(0,1fr));margin-top:8px}.field-row .field-buttons{display:flex;gap:8px;align-items:center;margin-top:8px}.field-row .btn{padding:8px 12px}.editor .template-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.editor-note{font-size:12px;line-height:1.5;color:var(--muted);margin:10px 0}.location-controls .config-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.location-preview{overflow:auto;max-height:740px;display:flex;flex-direction:column;gap:18px;align-items:center;padding:16px;background:#f7fbff;border:1px dashed #a8cbe7;border-radius:12px}.location-frame{flex:none;position:relative}.location-frame>.location-sheet{position:absolute;transform-origin:top left;top:0;left:0}.location-total{font-size:13px;color:var(--navy);line-height:1.5}.location-nav{margin-bottom:14px}
+@media(max-width:860px){.mobile-bottom{grid-template-columns:repeat(5,minmax(0,1fr))}.mobile-bottom button{font-size:11px;padding-left:2px;padding-right:2px}.location-preview{max-height:640px;padding:8px}.editor .template-row{grid-template-columns:1fr}.field-row .field-buttons{flex-wrap:wrap}}
+
+</style>
 
 
 <script>var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this.parsedData=[];for(var b=[],d=0,e=this.data.length;e>d;d++){var f=this.data.charCodeAt(d);f>65536?(b[0]=240|(1835008&f)>>>18,b[1]=128|(258048&f)>>>12,b[2]=128|(4032&f)>>>6,b[3]=128|63&f):f>2048?(b[0]=224|(61440&f)>>>12,b[1]=128|(4032&f)>>>6,b[2]=128|63&f):f>128?(b[0]=192|(1984&f)>>>6,b[1]=128|63&f):b[0]=f,this.parsedData=this.parsedData.concat(b)}this.parsedData.length!=this.data.length&&(this.parsedData.unshift(191),this.parsedData.unshift(187),this.parsedData.unshift(239))}function b(a,b){this.typeNumber=a,this.errorCorrectLevel=b,this.modules=null,this.moduleCount=0,this.dataCache=null,this.dataList=[]}function i(a,b){if(void 0==a.length)throw new Error(a.length+"/"+b);for(var c=0;c<a.length&&0==a[c];)c++;this.num=new Array(a.length-c+b);for(var d=0;d<a.length-c;d++)this.num[d]=a[d+c]}function j(a,b){this.totalCount=a,this.dataCount=b}function k(){this.buffer=[],this.length=0}function m(){return"undefined"!=typeof CanvasRenderingContext2D}function n(){var a=!1,b=navigator.userAgent;return/android/i.test(b)&&(a=!0,aMat=b.toString().match(/android ([0-9]\.[0-9])/i),aMat&&aMat[1]&&(a=parseFloat(aMat[1]))),a}function r(a,b){for(var c=1,e=s(a),f=0,g=l.length;g>=f;f++){var h=0;switch(b){case d.L:h=l[f][0];break;case d.M:h=l[f][1];break;case d.Q:h=l[f][2];break;case d.H:h=l[f][3]}if(h>=e)break;c++}if(c>l.length)throw new Error("Too long data");return c}function s(a){var b=encodeURI(a).toString().replace(/\%[0-9a-fA-F]{2}/g,"a");return b.length+(b.length!=a?3:0)}a.prototype={getLength:function(){return this.parsedData.length},write:function(a){for(var b=0,c=this.parsedData.length;c>b;b++)a.put(this.parsedData[b],8)}},b.prototype={addData:function(b){var c=new a(b);this.dataList.push(c),this.dataCache=null},isDark:function(a,b){if(0>a||this.moduleCount<=a||0>b||this.moduleCount<=b)throw new Error(a+","+b);return this.modules[a][b]},getModuleCount:function(){return this.moduleCount},make:function(){this.makeImpl(!1,this.getBestMaskPattern())},makeImpl:function(a,c){this.moduleCount=4*this.typeNumber+17,this.modules=new Array(this.moduleCount);for(var d=0;d<this.moduleCount;d++){this.modules[d]=new Array(this.moduleCount);for(var e=0;e<this.moduleCount;e++)this.modules[d][e]=null}this.setupPositionProbePattern(0,0),this.setupPositionProbePattern(this.moduleCount-7,0),this.setupPositionProbePattern(0,this.moduleCount-7),this.setupPositionAdjustPattern(),this.setupTimingPattern(),this.setupTypeInfo(a,c),this.typeNumber>=7&&this.setupTypeNumber(a),null==this.dataCache&&(this.dataCache=b.createData(this.typeNumber,this.errorCorrectLevel,this.dataList)),this.mapData(this.dataCache,c)},setupPositionProbePattern:function(a,b){for(var c=-1;7>=c;c++)if(!(-1>=a+c||this.moduleCount<=a+c))for(var d=-1;7>=d;d++)-1>=b+d||this.moduleCount<=b+d||(this.modules[a+c][b+d]=c>=0&&6>=c&&(0==d||6==d)||d>=0&&6>=d&&(0==c||6==c)||c>=2&&4>=c&&d>=2&&4>=d?!0:!1)},getBestMaskPattern:function(){for(var a=0,b=0,c=0;8>c;c++){this.makeImpl(!0,c);var d=f.getLostPoint(this);(0==c||a>d)&&(a=d,b=c)}return b},createMovieClip:function(a,b,c){var d=a.createEmptyMovieClip(b,c),e=1;this.make();for(var f=0;f<this.modules.length;f++)for(var g=f*e,h=0;h<this.modules[f].length;h++){var i=h*e,j=this.modules[f][h];j&&(d.beginFill(0,100),d.moveTo(i,g),d.lineTo(i+e,g),d.lineTo(i+e,g+e),d.lineTo(i,g+e),d.endFill())}return d},setupTimingPattern:function(){for(var a=8;a<this.moduleCount-8;a++)null==this.modules[a][6]&&(this.modules[a][6]=0==a%2);for(var b=8;b<this.moduleCount-8;b++)null==this.modules[6][b]&&(this.modules[6][b]=0==b%2)},setupPositionAdjustPattern:function(){for(var a=f.getPatternPosition(this.typeNumber),b=0;b<a.length;b++)for(var c=0;c<a.length;c++){var d=a[b],e=a[c];if(null==this.modules[d][e])for(var g=-2;2>=g;g++)for(var h=-2;2>=h;h++)this.modules[d+g][e+h]=-2==g||2==g||-2==h||2==h||0==g&&0==h?!0:!1}},setupTypeNumber:function(a){for(var b=f.getBCHTypeNumber(this.typeNumber),c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[Math.floor(c/3)][c%3+this.moduleCount-8-3]=d}for(var c=0;18>c;c++){var d=!a&&1==(1&b>>c);this.modules[c%3+this.moduleCount-8-3][Math.floor(c/3)]=d}},setupTypeInfo:function(a,b){for(var c=this.errorCorrectLevel<<3|b,d=f.getBCHTypeInfo(c),e=0;15>e;e++){var g=!a&&1==(1&d>>e);6>e?this.modules[e][8]=g:8>e?this.modules[e+1][8]=g:this.modules[this.moduleCount-15+e][8]=g}for(var e=0;15>e;e++){var g=!a&&1==(1&d>>e);8>e?this.modules[8][this.moduleCount-e-1]=g:9>e?this.modules[8][15-e-1+1]=g:this.modules[8][15-e-1]=g}this.modules[this.moduleCount-8][8]=!a},mapData:function(a,b){for(var c=-1,d=this.moduleCount-1,e=7,g=0,h=this.moduleCount-1;h>0;h-=2)for(6==h&&h--;;){for(var i=0;2>i;i++)if(null==this.modules[d][h-i]){var j=!1;g<a.length&&(j=1==(1&a[g]>>>e));var k=f.getMask(b,d,h-i);k&&(j=!j),this.modules[d][h-i]=j,e--,-1==e&&(g++,e=7)}if(d+=c,0>d||this.moduleCount<=d){d-=c,c=-c;break}}}},b.PAD0=236,b.PAD1=17,b.createData=function(a,c,d){for(var e=j.getRSBlocks(a,c),g=new k,h=0;h<d.length;h++){var i=d[h];g.put(i.mode,4),g.put(i.getLength(),f.getLengthInBits(i.mode,a)),i.write(g)}for(var l=0,h=0;h<e.length;h++)l+=e[h].dataCount;if(g.getLengthInBits()>8*l)throw new Error("code length overflow. ("+g.getLengthInBits()+">"+8*l+")");for(g.getLengthInBits()+4<=8*l&&g.put(0,4);0!=g.getLengthInBits()%8;)g.putBit(!1);for(;;){if(g.getLengthInBits()>=8*l)break;if(g.put(b.PAD0,8),g.getLengthInBits()>=8*l)break;g.put(b.PAD1,8)}return b.createBytes(g,e)},b.createBytes=function(a,b){for(var c=0,d=0,e=0,g=new Array(b.length),h=new Array(b.length),j=0;j<b.length;j++){var k=b[j].dataCount,l=b[j].totalCount-k;d=Math.max(d,k),e=Math.max(e,l),g[j]=new Array(k);for(var m=0;m<g[j].length;m++)g[j][m]=255&a.buffer[m+c];c+=k;var n=f.getErrorCorrectPolynomial(l),o=new i(g[j],n.getLength()-1),p=o.mod(n);h[j]=new Array(n.getLength()-1);for(var m=0;m<h[j].length;m++){var q=m+p.getLength()-h[j].length;h[j][m]=q>=0?p.get(q):0}}for(var r=0,m=0;m<b.length;m++)r+=b[m].totalCount;for(var s=new Array(r),t=0,m=0;d>m;m++)for(var j=0;j<b.length;j++)m<g[j].length&&(s[t++]=g[j][m]);for(var m=0;e>m;m++)for(var j=0;j<b.length;j++)m<h[j].length&&(s[t++]=h[j][m]);return s};for(var c={MODE_NUMBER:1,MODE_ALPHA_NUM:2,MODE_8BIT_BYTE:4,MODE_KANJI:8},d={L:1,M:0,Q:3,H:2},e={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7},f={PATTERN_POSITION_TABLE:[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],G15:1335,G18:7973,G15_MASK:21522,getBCHTypeInfo:function(a){for(var b=a<<10;f.getBCHDigit(b)-f.getBCHDigit(f.G15)>=0;)b^=f.G15<<f.getBCHDigit(b)-f.getBCHDigit(f.G15);return(a<<10|b)^f.G15_MASK},getBCHTypeNumber:function(a){for(var b=a<<12;f.getBCHDigit(b)-f.getBCHDigit(f.G18)>=0;)b^=f.G18<<f.getBCHDigit(b)-f.getBCHDigit(f.G18);return a<<12|b},getBCHDigit:function(a){for(var b=0;0!=a;)b++,a>>>=1;return b},getPatternPosition:function(a){return f.PATTERN_POSITION_TABLE[a-1]},getMask:function(a,b,c){switch(a){case e.PATTERN000:return 0==(b+c)%2;case e.PATTERN001:return 0==b%2;case e.PATTERN010:return 0==c%3;case e.PATTERN011:return 0==(b+c)%3;case e.PATTERN100:return 0==(Math.floor(b/2)+Math.floor(c/3))%2;case e.PATTERN101:return 0==b*c%2+b*c%3;case e.PATTERN110:return 0==(b*c%2+b*c%3)%2;case e.PATTERN111:return 0==(b*c%3+(b+c)%2)%2;default:throw new Error("bad maskPattern:"+a)}},getErrorCorrectPolynomial:function(a){for(var b=new i([1],0),c=0;a>c;c++)b=b.multiply(new i([1,g.gexp(c)],0));return b},getLengthInBits:function(a,b){if(b>=1&&10>b)switch(a){case c.MODE_NUMBER:return 10;case c.MODE_ALPHA_NUM:return 9;case c.MODE_8BIT_BYTE:return 8;case c.MODE_KANJI:return 8;default:throw new Error("mode:"+a)}else if(27>b)switch(a){case c.MODE_NUMBER:return 12;case c.MODE_ALPHA_NUM:return 11;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 10;default:throw new Error("mode:"+a)}else{if(!(41>b))throw new Error("type:"+b);switch(a){case c.MODE_NUMBER:return 14;case c.MODE_ALPHA_NUM:return 13;case c.MODE_8BIT_BYTE:return 16;case c.MODE_KANJI:return 12;default:throw new Error("mode:"+a)}}},getLostPoint:function(a){for(var b=a.getModuleCount(),c=0,d=0;b>d;d++)for(var e=0;b>e;e++){for(var f=0,g=a.isDark(d,e),h=-1;1>=h;h++)if(!(0>d+h||d+h>=b))for(var i=-1;1>=i;i++)0>e+i||e+i>=b||(0!=h||0!=i)&&g==a.isDark(d+h,e+i)&&f++;f>5&&(c+=3+f-5)}for(var d=0;b-1>d;d++)for(var e=0;b-1>e;e++){var j=0;a.isDark(d,e)&&j++,a.isDark(d+1,e)&&j++,a.isDark(d,e+1)&&j++,a.isDark(d+1,e+1)&&j++,(0==j||4==j)&&(c+=3)}for(var d=0;b>d;d++)for(var e=0;b-6>e;e++)a.isDark(d,e)&&!a.isDark(d,e+1)&&a.isDark(d,e+2)&&a.isDark(d,e+3)&&a.isDark(d,e+4)&&!a.isDark(d,e+5)&&a.isDark(d,e+6)&&(c+=40);for(var e=0;b>e;e++)for(var d=0;b-6>d;d++)a.isDark(d,e)&&!a.isDark(d+1,e)&&a.isDark(d+2,e)&&a.isDark(d+3,e)&&a.isDark(d+4,e)&&!a.isDark(d+5,e)&&a.isDark(d+6,e)&&(c+=40);for(var k=0,e=0;b>e;e++)for(var d=0;b>d;d++)a.isDark(d,e)&&k++;var l=Math.abs(100*k/b/b-50)/5;return c+=10*l}},g={glog:function(a){if(1>a)throw new Error("glog("+a+")");return g.LOG_TABLE[a]},gexp:function(a){for(;0>a;)a+=255;for(;a>=256;)a-=255;return g.EXP_TABLE[a]},EXP_TABLE:new Array(256),LOG_TABLE:new Array(256)},h=0;8>h;h++)g.EXP_TABLE[h]=1<<h;for(var h=8;256>h;h++)g.EXP_TABLE[h]=g.EXP_TABLE[h-4]^g.EXP_TABLE[h-5]^g.EXP_TABLE[h-6]^g.EXP_TABLE[h-8];for(var h=0;255>h;h++)g.LOG_TABLE[g.EXP_TABLE[h]]=h;i.prototype={get:function(a){return this.num[a]},getLength:function(){return this.num.length},multiply:function(a){for(var b=new Array(this.getLength()+a.getLength()-1),c=0;c<this.getLength();c++)for(var d=0;d<a.getLength();d++)b[c+d]^=g.gexp(g.glog(this.get(c))+g.glog(a.get(d)));return new i(b,0)},mod:function(a){if(this.getLength()-a.getLength()<0)return this;for(var b=g.glog(this.get(0))-g.glog(a.get(0)),c=new Array(this.getLength()),d=0;d<this.getLength();d++)c[d]=this.get(d);for(var d=0;d<a.getLength();d++)c[d]^=g.gexp(g.glog(a.get(d))+b);return new i(c,0).mod(a)}},j.RS_BLOCK_TABLE=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],j.getRSBlocks=function(a,b){var c=j.getRsBlockTable(a,b);if(void 0==c)throw new Error("bad rs block @ typeNumber:"+a+"/errorCorrectLevel:"+b);for(var d=c.length/3,e=[],f=0;d>f;f++)for(var g=c[3*f+0],h=c[3*f+1],i=c[3*f+2],k=0;g>k;k++)e.push(new j(h,i));return e},j.getRsBlockTable=function(a,b){switch(b){case d.L:return j.RS_BLOCK_TABLE[4*(a-1)+0];case d.M:return j.RS_BLOCK_TABLE[4*(a-1)+1];case d.Q:return j.RS_BLOCK_TABLE[4*(a-1)+2];case d.H:return j.RS_BLOCK_TABLE[4*(a-1)+3];default:return void 0}},k.prototype={get:function(a){var b=Math.floor(a/8);return 1==(1&this.buffer[b]>>>7-a%8)},put:function(a,b){for(var c=0;b>c;c++)this.putBit(1==(1&a>>>b-c-1))},getLengthInBits:function(){return this.length},putBit:function(a){var b=Math.floor(this.length/8);this.buffer.length<=b&&this.buffer.push(0),a&&(this.buffer[b]|=128>>>this.length%8),this.length++}};var l=[[17,14,11,7],[32,26,20,14],[53,42,32,24],[78,62,46,34],[106,84,60,44],[134,106,74,58],[154,122,86,64],[192,152,108,84],[230,180,130,98],[271,213,151,119],[321,251,177,137],[367,287,203,155],[425,331,241,177],[458,362,258,194],[520,412,292,220],[586,450,322,250],[644,504,364,280],[718,560,394,310],[792,624,442,338],[858,666,482,382],[929,711,509,403],[1003,779,565,439],[1091,857,611,461],[1171,911,661,511],[1273,997,715,535],[1367,1059,751,593],[1465,1125,805,625],[1528,1190,868,658],[1628,1264,908,698],[1732,1370,982,742],[1840,1452,1030,790],[1952,1538,1112,842],[2068,1628,1168,898],[2188,1722,1228,958],[2303,1809,1283,983],[2431,1911,1351,1051],[2563,1989,1423,1093],[2699,2099,1499,1139],[2809,2213,1579,1219],[2953,2331,1663,1273]],o=function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){function g(a,b){var c=document.createElementNS("http://www.w3.org/2000/svg",a);for(var d in b)b.hasOwnProperty(d)&&c.setAttribute(d,b[d]);return c}var b=this._htOption,c=this._el,d=a.getModuleCount();Math.floor(b.width/d),Math.floor(b.height/d),this.clear();var h=g("svg",{viewBox:"0 0 "+String(d)+" "+String(d),width:"100%",height:"100%",fill:b.colorLight});h.setAttributeNS("http://www.w3.org/2000/xmlns/","xmlns:xlink","http://www.w3.org/1999/xlink"),c.appendChild(h),h.appendChild(g("rect",{fill:b.colorDark,width:"1",height:"1",id:"template"}));for(var i=0;d>i;i++)for(var j=0;d>j;j++)if(a.isDark(i,j)){var k=g("use",{x:String(i),y:String(j)});k.setAttributeNS("http://www.w3.org/1999/xlink","href","#template"),h.appendChild(k)}},a.prototype.clear=function(){for(;this._el.hasChildNodes();)this._el.removeChild(this._el.lastChild)},a}(),p="svg"===document.documentElement.tagName.toLowerCase(),q=p?o:m()?function(){function a(){this._elImage.src=this._elCanvas.toDataURL("image/png"),this._elImage.style.display="block",this._elCanvas.style.display="none"}function d(a,b){var c=this;if(c._fFail=b,c._fSuccess=a,null===c._bSupportDataURI){var d=document.createElement("img"),e=function(){c._bSupportDataURI=!1,c._fFail&&_fFail.call(c)},f=function(){c._bSupportDataURI=!0,c._fSuccess&&c._fSuccess.call(c)};return d.onabort=e,d.onerror=e,d.onload=f,d.src="data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==",void 0}c._bSupportDataURI===!0&&c._fSuccess?c._fSuccess.call(c):c._bSupportDataURI===!1&&c._fFail&&c._fFail.call(c)}if(this._android&&this._android<=2.1){var b=1/window.devicePixelRatio,c=CanvasRenderingContext2D.prototype.drawImage;CanvasRenderingContext2D.prototype.drawImage=function(a,d,e,f,g,h,i,j){if("nodeName"in a&&/img/i.test(a.nodeName))for(var l=arguments.length-1;l>=1;l--)arguments[l]=arguments[l]*b;else"undefined"==typeof j&&(arguments[1]*=b,arguments[2]*=b,arguments[3]*=b,arguments[4]*=b);c.apply(this,arguments)}}var e=function(a,b){this._bIsPainted=!1,this._android=n(),this._htOption=b,this._elCanvas=document.createElement("canvas"),this._elCanvas.width=b.width,this._elCanvas.height=b.height,a.appendChild(this._elCanvas),this._el=a,this._oContext=this._elCanvas.getContext("2d"),this._bIsPainted=!1,this._elImage=document.createElement("img"),this._elImage.style.display="none",this._el.appendChild(this._elImage),this._bSupportDataURI=null};return e.prototype.draw=function(a){var b=this._elImage,c=this._oContext,d=this._htOption,e=a.getModuleCount(),f=d.width/e,g=d.height/e,h=Math.round(f),i=Math.round(g);b.style.display="none",this.clear();for(var j=0;e>j;j++)for(var k=0;e>k;k++){var l=a.isDark(j,k),m=k*f,n=j*g;c.strokeStyle=l?d.colorDark:d.colorLight,c.lineWidth=1,c.fillStyle=l?d.colorDark:d.colorLight,c.fillRect(m,n,f,g),c.strokeRect(Math.floor(m)+.5,Math.floor(n)+.5,h,i),c.strokeRect(Math.ceil(m)-.5,Math.ceil(n)-.5,h,i)}this._bIsPainted=!0},e.prototype.makeImage=function(){this._bIsPainted&&d.call(this,a)},e.prototype.isPainted=function(){return this._bIsPainted},e.prototype.clear=function(){this._oContext.clearRect(0,0,this._elCanvas.width,this._elCanvas.height),this._bIsPainted=!1},e.prototype.round=function(a){return a?Math.floor(1e3*a)/1e3:a},e}():function(){var a=function(a,b){this._el=a,this._htOption=b};return a.prototype.draw=function(a){for(var b=this._htOption,c=this._el,d=a.getModuleCount(),e=Math.floor(b.width/d),f=Math.floor(b.height/d),g=['<table style="border:0;border-collapse:collapse;">'],h=0;d>h;h++){g.push("<tr>");for(var i=0;d>i;i++)g.push('<td style="border:0;border-collapse:collapse;padding:0;margin:0;width:'+e+"px;height:"+f+"px;background-color:"+(a.isDark(h,i)?b.colorDark:b.colorLight)+';"></td>');g.push("</tr>")}g.push("</table>"),c.innerHTML=g.join("");var j=c.childNodes[0],k=(b.width-j.offsetWidth)/2,l=(b.height-j.offsetHeight)/2;k>0&&l>0&&(j.style.margin=l+"px "+k+"px")},a.prototype.clear=function(){this._el.innerHTML=""},a}();QRCode=function(a,b){if(this._htOption={width:256,height:256,typeNumber:4,colorDark:"#000000",colorLight:"#ffffff",correctLevel:d.H},"string"==typeof b&&(b={text:b}),b)for(var c in b)this._htOption[c]=b[c];"string"==typeof a&&(a=document.getElementById(a)),this._android=n(),this._el=a,this._oQRCode=null,this._oDrawing=new q(this._el,this._htOption),this._htOption.text&&this.makeCode(this._htOption.text)},QRCode.prototype.makeCode=function(a){this._oQRCode=new b(r(a,this._htOption.correctLevel),this._htOption.correctLevel),this._oQRCode.addData(a),this._oQRCode.make(),this._el.title=a,this._oDrawing.draw(this._oQRCode),this.makeImage()},QRCode.prototype.makeImage=function(){"function"==typeof this._oDrawing.makeImage&&(!this._android||this._android>=3)&&this._oDrawing.makeImage()},QRCode.prototype.clear=function(){this._oDrawing.clear()},QRCode.CorrectLevel=d}();</script>
@@ -557,6 +562,7 @@ textarea{min-height:170px;resize:vertical}
       <button class="nav-btn" data-page="labels"><span class="nav-ico">🏷</span>Etiquetas</button>
       <button class="nav-btn" data-page="scan"><span class="nav-ico">⌗</span>Escanear</button>
       <button class="nav-btn" data-page="base"><span class="nav-ico">◫</span>Productos</button>
+      <button class="nav-btn" data-page="locations"><span class="nav-ico">▤</span>Ubicaciones</button>
       <button class="nav-btn" data-page="history"><span class="nav-ico">◷</span>Historial</button>
     </div>
     <div class="side-footer">
@@ -628,6 +634,17 @@ textarea{min-height:170px;resize:vertical}
                 </div>
               </div>
             </div>
+<details class="config-panel editor" id="labelEditor">
+  <summary>Personalizar etiqueta</summary>
+  <label class="toggle"><input id="enableDesign" type="checkbox"> Activar diseño personalizado</label>
+  <p class="editor-note">Código y descripción mantienen los datos del producto. Los textos adicionales no se agregan al QR. Lote y vencimiento con valor deben permanecer visibles. Las posiciones laterales usan solo el espacio libre a cada lado del QR.</p>
+  <div id="designFields"></div>
+  <div class="actions"><button class="btn btn-soft" type="button" onclick="addDesignField()">+ Agregar campo</button><button class="btn btn-blue" type="button" onclick="saveDesign()">Guardar diseño</button><button class="btn btn-soft" type="button" onclick="resetDesign()">Restablecer diseño predeterminado</button></div>
+  <div class="template-row"><div><label for="designTemplateName">Nombre de plantilla</label><input id="designTemplateName" placeholder="Ej.: Almacén · cantidad y ubicación" maxlength="60"></div><div><label for="designTemplateSelect">Plantillas guardadas</label><select id="designTemplateSelect" onchange="useDesignTemplate()"></select></div></div>
+  <div class="actions"><button class="btn btn-soft" type="button" onclick="saveDesignTemplate()">Guardar plantilla</button><button class="btn btn-soft" type="button" onclick="exportDesignTemplate()">Exportar plantilla</button><button class="btn btn-soft" type="button" onclick="document.getElementById('designTemplateFile').click()">Importar plantilla</button><input id="designTemplateFile" type="file" accept=".json" hidden></div>
+  <p class="editor-note">Diseños y plantillas se guardan en este navegador, separados del catálogo y del historial. Para usarlos en otro equipo, exporta e importa la plantilla.</p>
+</details>
+
           </div>
 
           <div class="card">
@@ -666,7 +683,23 @@ textarea{min-height:170px;resize:vertical}
         </div>
       </section>
 
-      <section id="scan" class="page">
+      <section id="locations" class="page">
+  <div class="grid-main">
+    <div class="card location-controls">
+      <div class="card-title"><span class="mini">▤</span>Etiquetas de ubicación</div>
+      <label for="locationCodes">Una ubicación por línea o separada por coma</label><textarea id="locationCodes" spellcheck="false">G1.1
+G1.2
+G1.3</textarea>
+      <div class="config-fields"><div><label for="locationsPerSheet">Tickets por etiqueta física de 76 × 76 mm</label><select id="locationsPerSheet"><option value="3">3 tickets · 76 × 25,3 mm aprox.</option><option value="4">4 tickets</option><option value="5">5 tickets</option><option value="6">6 tickets</option></select></div><div><label for="locationSecondary">Texto secundario</label><select id="locationSecondary"><option value="none">Solo código</option><option value="module">Mostrar MÓDULO según la letra</option><option value="location">Mostrar UBICACIÓN</option></select></div></div>
+      <div class="config-fields"><div><label for="locationStart">Inicio de secuencia</label><input id="locationStart" value="G1.1" placeholder="G1.1"></div><div><label for="locationSequenceCount">Cantidad de ubicaciones</label><input id="locationSequenceCount" type="number" value="3" min="1" max="5000" step="1"></div></div>
+      <div class="actions"><button class="btn btn-soft" type="button" onclick="generateLocationSequence()">Generar secuencia</button><button class="btn btn-primary" type="button" onclick="printLocations()">🖨 Imprimir ubicaciones</button></div>
+      <p class="device-note">Todas las ubicaciones se distribuyen en las páginas necesarias. La última página conserva sus divisiones y deja vacíos los tickets sobrantes. Las líneas punteadas indican el corte. Estas etiquetas no llevan QR ni se añaden al historial de productos.</p>
+    </div>
+    <div class="card"><div class="card-title">Vista previa de todas las páginas</div><p id="locationTotal" class="location-total" aria-live="polite"></p><div id="locationPreview" class="location-preview"></div><p id="locationStatus" class="status" style="color:var(--red)" role="status"></p></div>
+  </div>
+</section>
+
+<section id="scan" class="page">
         <div class="card">
           <div class="card-title"><span class="mini">⌗</span>Lectura QR / Pistola 2D</div>
           <div class="scan-tabs">
@@ -722,6 +755,7 @@ textarea{min-height:170px;resize:vertical}
   <button class="active" onclick="openPage('labels')">⌂<br>Inicio</button>
   <button onclick="openPage('base')">◫<br>Productos</button>
   <button onclick="openPage('scan')">⌗<br>Escanear</button>
+  <button onclick="openPage('locations')">▤<br>Ubicaciones</button>
   <button onclick="openPage('history')">◷<br>Historial</button>
 </nav>
 
@@ -837,8 +871,8 @@ function exportBase(){downloadBlob(new Blob([JSON.stringify(products,null,2)],{t
 function clearBase(){if(sharedState.enabled){if(!confirm('¿Borrar la base compartida para todos los dispositivos? Se conserva un respaldo en Google Sheets y el historial de impresión.'))return false;return queueSharedPublish('clear',[]);}if(!confirm('¿Borrar la base de productos de este navegador? El historial se conserva. Exporta la base antes si necesitas una copia.'))return false;if(!LocalData.remove(STORAGE_KEYS.products))return false;products=[];selectedProduct=null;qrCache=null;document.getElementById('searchInput').value='';updateBaseStatus();searchProducts();showSelected();updatePreview();notice('Base de productos borrada de este navegador.');return true;}
 
 
-document.getElementById('searchInput').addEventListener('input',searchProducts);
-['lotField','expiryField','qtyField'].forEach(id=>document.getElementById(id).addEventListener('input',updatePreview));
+document.getElementById('searchInput').addEventListener('input',()=>searchProducts());
+['lotField','expiryField','qtyField'].forEach(id=>document.getElementById(id).addEventListener('input',()=>updatePreview()));
 
 function searchProducts(){const q=norm(document.getElementById('searchInput').value);const box=document.getElementById('results');box.innerHTML='';if(!q)return;let matches=0;for(const p of products){if(![p.code,p.id,p.desc].some(v=>norm(v).includes(q)))continue;matches++;if(matches>50)continue;const d=document.createElement('div');d.className='result';d.setAttribute('role','option');d.tabIndex=0;d.innerHTML='<b>'+esc(p.code)+(p.id?' · '+esc(p.id):'')+'</b><small>'+esc(p.desc)+'</small>';d.onclick=()=>selectProduct(p);d.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();selectProduct(p);}else if(e.key==='ArrowDown'&&d.nextElementSibling){e.preventDefault();d.nextElementSibling.focus();}else if(e.key==='ArrowUp'){e.preventDefault();(d.previousElementSibling||document.getElementById('searchInput')).focus();}};box.appendChild(d);}if(!matches)box.innerHTML='<div class="result"><small>Sin resultados. Carga tu base en Productos.</small></div>';else if(matches>50){const info=document.createElement('div');info.className='result';info.textContent='Mostrando 50 de '+matches+'. Escribe más para precisar la búsqueda.';box.appendChild(info);}}
 
@@ -913,9 +947,340 @@ function parseQR(text){const o={};String(text||'').trim().replace(/^\]Q[0-9]/,''
 function processScan(text){const q=parseQR(text),box=document.getElementById('scanResult');box.classList.add('show');if(!q.COD&&!q.ID){box.textContent='El QR no contiene un código o ID Master reconocido.';return false;}const p=products.find(x=>q.COD&&norm(x.code)===norm(q.COD))||products.find(x=>q.ID&&norm(x.id)===norm(q.ID));const values=[['Código',q.COD||p&&p.code||''],['Producto',p?p.desc:sharedState.enabled?'Producto no encontrado en la base compartida. Toca Actualizar en Productos.':'No encontrado. Carga la base de productos de este equipo.'],['ID Master',q.ID||p&&p.id||''],['Lote',q.LOTE||'—'],['Vencimiento',q.VENCE?compactDate(q.VENCE):'—']];box.innerHTML='<table>'+values.map(([name,value])=>'<tr><td>'+name+'</td><td>'+esc(value)+'</td></tr>').join('')+'</table>';return true;}
 
 
-setupAdditionalControls(); updateBaseStatus(); searchProducts(); showSelected(); updatePreview(); renderHistory();
 
-initializeSharedBase();
+</script>
+<script>
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.IdenticalUpdate = factory();
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+  const normalize = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim().replace(/\s+/g, ' ');
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function searchIndex(items) {
+    return items.map((product, order) => ({product, order, code:normalize(product.code), id:normalize(product.id), text:normalize([product.code, product.id, product.desc].join(' '))}));
+  }
+  function search(index, query) {
+    const q = normalize(query);
+    if (!q) return [];
+    const terms = q.split(' '), exact = [], other = [];
+    for (const item of index) {
+      if (!terms.every(term => item.text.includes(term))) continue;
+      (item.code === q || item.id === q ? exact : other).push(item.product);
+    }
+    return exact.concat(other);
+  }
+  function locations(text) {
+    const codes = String(text).split(/\r?\n|,/).map(s => s.trim()).filter(Boolean);
+    if (codes.length > 5000) throw Error('Imprime como máximo 5000 ubicaciones por lote.');
+    if (codes.some(s => s.length > 80)) throw Error('Una ubicación supera los 80 caracteres. Acorta el texto antes de imprimir.');
+    return codes;
+  }
+  function locationPages(codes, count) {
+    if (![3,4,5,6].includes(count)) throw Error('Elige 3, 4, 5 o 6 divisiones.');
+    const pages = [];
+    for (let i = 0; i < codes.length; i += count) pages.push(codes.slice(i, i + count));
+    return pages;
+  }
+  function sequence(first, count) {
+    const m = String(first).trim().match(/^([A-Za-z]+)(\d+)\.(\d+)$/);
+    if (!m || !Number.isSafeInteger(count) || count < 1 || count > 5000 || !Number.isSafeInteger(Number(m[3]) + count)) throw Error('Usa un inicio como G1.1 y una cantidad de 1 a 5000.');
+    return Array.from({length:count}, (_, i) => m[1].toUpperCase()+m[2]+'.'+(Number(m[3])+i));
+  }
+  function secondary(code, mode) {
+    if (!code) return '';
+    if (mode === 'location') return 'UBICACIÓN';
+    if (mode === 'module') return 'MÓDULO'+((code.match(/[A-Za-z]+/) || [''])[0] ? ' '+code.match(/[A-Za-z]+/)[0].toUpperCase() : '');
+    return '';
+  }
+  function defaultDesign() {
+    return {version:1, enabled:false, fields:[
+      {id:'lot', source:'lot', name:'Lote', value:'', visible:true, zone:'top', align:'center'},
+      {id:'expiry', source:'expiry', name:'Vence', value:'', visible:true, zone:'top', align:'center'}
+    ]};
+  }
+  function validateDesign(input) {
+    if (!input || input.version !== 1 || typeof input.enabled !== 'boolean' || !Array.isArray(input.fields) || input.fields.length > 22) throw Error('La plantilla no es válida.');
+    const ids = new Set(), builtins = new Set();
+    const fields = input.fields.map(f => {
+      if (!f || typeof f.id !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(f.id) || ids.has(f.id) || !['text','lot','expiry'].includes(f.source) || typeof f.name !== 'string' || f.name.length > 60 || typeof f.value !== 'string' || f.value.length > 500 || typeof f.visible !== 'boolean' || !['top','bottom','left','right'].includes(f.zone) || !['left','center','right'].includes(f.align)) throw Error('Hay campos inválidos en la plantilla.');
+      ids.add(f.id);
+      if (f.source !== 'text') {
+        if (f.id !== f.source || builtins.has(f.source)) throw Error('La plantilla repite un campo original.');
+        builtins.add(f.source);
+      }
+      return {id:f.id, source:f.source, name:f.name, value:f.source === 'text' ? f.value : '', visible:f.visible, zone:f.zone, align:f.align};
+    });
+    if (!builtins.has('lot') || !builtins.has('expiry')) throw Error('La plantilla debe conservar lote y vencimiento.');
+    return {version:1, enabled:input.enabled, fields};
+  }
+  function fieldText(field, values) {
+    let value = field.source === 'lot' ? values.lot : field.source === 'expiry' ? values.expiry : field.value;
+    if (field.source !== 'text' && !value) value = '—';
+    return (field.name.trim() ? field.name.trim()+': ' : '')+value;
+  }
+  function mandatoryFields(design, values) {
+    if (!design.enabled) return;
+    for (const f of design.fields) {
+      const value = f.source === 'lot' ? values.lot : f.source === 'expiry' ? values.expiry : '';
+      if (value && !f.visible) throw Error('El campo '+(f.source === 'lot' ? 'lote' : 'vencimiento')+' tiene un valor y debe permanecer visible.');
+    }
+  }
+  return {normalize, escape, searchIndex, search, locations, locationPages, sequence, secondary, defaultDesign, validateDesign, fieldText, mandatoryFields};
+});
+
+const UPDATE_LABEL_CSS = ".label-sheet{font-family:Arial,Helvetica,sans-serif}\n.label-sheet .ticket .tdesc{display:block!important;overflow:visible!important;text-overflow:clip!important;-webkit-line-clamp:unset!important;line-clamp:unset!important;-webkit-box-orient:initial!important;white-space:normal!important;height:auto!important;max-height:none!important;overflow-wrap:anywhere}\n.label-sheet .ticket.design-enabled .ticket-inner{display:grid;grid-template-columns:minmax(0,1fr) var(--reserved-qr) minmax(0,1fr);grid-template-rows:auto auto auto auto minmax(var(--reserved-qr),1fr) auto;column-gap:.6mm;row-gap:.15mm;align-items:start;justify-items:stretch;overflow:visible}\n.label-sheet .design-enabled .ticket-logo{grid-column:1/-1;grid-row:1;justify-self:center}\n.label-sheet .design-enabled .tcode{grid-column:1/-1;grid-row:2;justify-self:center}\n.label-sheet .design-enabled .tdesc{grid-column:1/-1;grid-row:3;justify-self:center}\n.label-sheet .design-enabled .tmeta{display:none!important}\n.label-sheet .design-enabled .qrimg{grid-column:2;grid-row:5;width:var(--reserved-qr)!important;height:var(--reserved-qr)!important;min-width:var(--reserved-qr);max-width:none;justify-self:center;align-self:center;margin:0!important}\n.label-sheet .design-enabled .custom-zone{width:100%;min-width:0;min-height:0;color:#111;overflow:hidden;overflow-wrap:anywhere;font-weight:700;font-family:Arial,sans-serif;line-height:1.12}\n.label-sheet .design-enabled .custom-top{grid-column:1/-1;grid-row:4}\n.label-sheet .design-enabled .custom-bottom{grid-column:1/-1;grid-row:6}\n.label-sheet .design-enabled .custom-left{grid-column:1;grid-row:5;align-self:center}\n.label-sheet .design-enabled .custom-right{grid-column:3;grid-row:5;align-self:center}\n.label-sheet .design-enabled .custom-field{display:block;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;text-align:var(--field-align);font-size:2.1mm}\n.label-sheet .ticket.medium .custom-field{font-size:1.8mm}\n.label-sheet .ticket.small .custom-field{font-size:1.65mm}\n.label-sheet .ticket.mini .custom-field{font-size:1.5mm}\n.label-sheet.native .design-enabled .custom-field{font-size:var(--meta-font)}\n.location-sheet{width:76mm;height:76mm;display:grid;background:#fff;color:#000;overflow:hidden;flex:none;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}\n.location-ticket{box-sizing:border-box;min-height:0;min-width:0;padding:1mm 1.8mm;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:#fff}\n.location-ticket+.location-ticket{border-top:.35mm dashed #6e7c8b}\n.location-code{font-family:Arial,Helvetica,sans-serif;font-weight:900;letter-spacing:.35mm;line-height:1;white-space:nowrap;color:#000}\n.location-secondary{font-family:Arial,Helvetica,sans-serif;font-weight:700;margin-top:.65mm;letter-spacing:.12mm;color:#111;line-height:1.05;white-space:nowrap}\n";
+const UpdateCore = window.IdenticalUpdate;
+const UpdateKeys = Object.freeze({design:'identical_label_design_v1',templates:'identical_label_templates_v1'});
+let updateDesign = UpdateCore.defaultDesign(), updateTemplates = {};
+let updateSearchSource = null, updateSearchIndex = [], updateSearchPage = 1;
+let updatePrintBusy = 0, updateSharedPending = null;
+const originalUpdatePreview = updatePreview, originalTicketHTML = ticketHTML, originalPrintTicketHTML = printTicketHTML;
+const originalPrintDocument = printDocument, originalFitTickets = fitTickets, originalValidateJob = validateLabelJob;
+const originalSaveHistory = saveHistory, originalOpenPage = openPage, originalApplySharedProducts = applySharedProducts;
+applySharedProducts = function(items,data) {
+  if(updatePrintBusy){updateSharedPending={items,data};return;}
+  return originalApplySharedProducts(items,data);
+};
+searchProducts = function(reset=true) {
+  const box=document.getElementById('results'),query=document.getElementById('searchInput').value;
+  box.innerHTML='';
+  if (!UpdateCore.normalize(query)) return;
+  if (reset!==false) updateSearchPage=1;
+  if (updateSearchSource!==products) {updateSearchSource=products;updateSearchIndex=UpdateCore.searchIndex(products);}
+  const found=UpdateCore.search(updateSearchIndex,query),shown=found.slice(0,50*updateSearchPage);
+  for (const p of shown) {
+    const row=document.createElement('div');row.className='result';row.setAttribute('role','option');row.tabIndex=0;
+    row.innerHTML='<b>'+esc(p.code)+(p.id?' · '+esc(p.id):'')+'</b><small>'+esc(p.desc)+'</small>';
+    row.onclick=()=>selectProduct(p);
+    row.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();selectProduct(p);}else if(e.key==='ArrowDown'&&row.nextElementSibling){e.preventDefault();row.nextElementSibling.focus();}else if(e.key==='ArrowUp'){e.preventDefault();(row.previousElementSibling||document.getElementById('searchInput')).focus();}};
+    box.appendChild(row);
+  }
+  if (!found.length) {const empty=document.createElement('div');empty.className='result';empty.textContent='Sin coincidencias. Prueba otras palabras o actualiza productos.';box.appendChild(empty);}
+  if (found.length>shown.length) {const more=document.createElement('button');more.type='button';more.className='btn btn-soft';more.textContent='Mostrar más ('+shown.length+' de '+found.length+')';more.onclick=e=>{e.stopPropagation();updateSearchPage++;searchProducts(false);};box.appendChild(more);}
+};
+function designValues() {return {lot:document.getElementById('lotField').value.trim(),expiry:document.getElementById('expiryField').value?fmtDate(document.getElementById('expiryField').value):''};}
+function designZone(zone) {
+  const values=designValues();
+  return '<div class="custom-zone custom-'+zone+'">'+updateDesign.fields.filter(f=>f.visible&&f.zone===zone).map(f=>'<div class="custom-field" style="--field-align:'+f.align+'">'+esc(UpdateCore.fieldText(f,values))+'</div>').join('')+'</div>';
+}
+function personalizedTicket(size,index,layout,src,active) {
+  if (!active) return '<div class="ticket '+size+cutClass(layout,index)+'"></div>';
+  return '<div class="ticket '+size+cutClass(layout,index)+' design-enabled" style="--reserved-qr:'+Number(modeConf().qr)+'mm" data-qr="'+esc(qrPayload())+'"><div class="ticket-inner"><img class="ticket-logo" src="'+LOGO+'" alt="Identical"><div class="tcode">'+esc(selectedProduct?selectedProduct.code:'CÓDIGO')+'</div><div class="tdesc">'+esc(selectedProduct?selectedProduct.desc:'Producto')+'</div><div class="tmeta">'+ticketMeta(size)+'</div>'+designZone('top')+designZone('left')+'<img class="qrimg" alt="QR" '+(src?'src="'+esc(src)+'"':'hidden')+'>'+designZone('right')+designZone('bottom')+'</div></div>';
+}
+ticketHTML = function(size,index,layout,active=true) {return updateDesign.enabled?personalizedTicket(size,index,layout,null,active):originalTicketHTML(size,index,layout,active);};
+printTicketHTML = function(size,index,layout,src,active=true) {return updateDesign.enabled?personalizedTicket(size,index,layout,src,active):originalPrintTicketHTML(size,index,layout,src,active);};
+printDocument = function(job) {return originalPrintDocument(job).replace('</style>',UPDATE_LABEL_CSS+'</style>');};
+function rectanglesOverlap(a,b) {return a.left<b.right-.5&&a.right>b.left+.5&&a.top<b.bottom-.5&&a.bottom>b.top+.5;}
+fitTickets = function(root) {
+  let good=true;
+  const defaultTickets=Array.from(root.querySelectorAll('.ticket:not(.design-enabled) .ticket-inner'));
+  const defaultRoot={querySelectorAll:()=>defaultTickets};
+  if (!originalFitTickets(defaultRoot)) good=false;
+  defaultTickets.forEach(inner=>{
+    if(!inner.clientHeight)return;
+    const desc=inner.querySelector('.tdesc'),qr=inner.querySelector('.qrimg');
+    if(desc.scrollHeight>desc.clientHeight+1||desc.scrollWidth>desc.clientWidth+1)good=false;
+    const bounds=inner.getBoundingClientRect(),description=desc.getBoundingClientRect();
+    if(description.bottom>bounds.bottom+.5||description.right>bounds.right+.5||description.left<bounds.left-.5)good=false;
+    if(!qr.hidden){const code=qr.getBoundingClientRect();if(code.bottom>bounds.bottom+.5||code.right>bounds.right+.5||code.left<bounds.left-.5||rectanglesOverlap(description,code))good=false;}
+  });
+  root.querySelectorAll('.design-enabled .ticket-inner').forEach(inner=>{
+    if (!inner.clientHeight) {good=false;return;}
+    const qr=inner.querySelector('.qrimg'),rect=qr.getBoundingClientRect(),bounds=inner.getBoundingClientRect();
+    if (inner.scrollHeight>inner.clientHeight+1||inner.scrollWidth>inner.clientWidth+1||rect.left<bounds.left-.5||rect.right>bounds.right+.5||rect.bottom>bounds.bottom+.5) good=false;
+    inner.querySelectorAll('.custom-field,.custom-zone,.tcode,.tdesc').forEach(field=>{
+      if (field.scrollHeight>field.clientHeight+1||field.scrollWidth>field.clientWidth+1) good=false;
+      const box=field.getBoundingClientRect();
+      if (box.height&&box.width&&rectanglesOverlap(box,rect)) good=false;
+      if (box.left<bounds.left-.5||box.right>bounds.right+.5||box.bottom>bounds.bottom+.5||box.top<bounds.top-.5) good=false;
+    });
+  });
+  return good;
+};
+updatePreview = function() {
+  originalUpdatePreview();
+  try {UpdateCore.mandatoryFields(updateDesign,designValues());if (selectedProduct&&!fitTickets(document.getElementById('sheetPreview'))) throw Error('La descripción o los campos no caben completos en esta medida. Elige una etiqueta mayor o ajusta los textos adicionales. El QR conserva su tamaño.');}
+  catch(e) {previewProblem=previewProblem||e.message;}
+  document.getElementById('labelStatus').textContent=previewProblem;
+};
+validateLabelJob = function() {
+  UpdateCore.mandatoryFields(updateDesign,designValues());
+  const job=originalValidateJob();
+  if (updateDesign.enabled&&!fitTickets(document.getElementById('sheetPreview'))) throw Error('El diseño no cabe completo en este formato. Revisa la vista previa antes de imprimir.');
+  return job;
+};
+function changeDesignField(id,key,value) {
+  const f=updateDesign.fields.find(row=>row.id===id);
+  if (!f) return;
+  if (key==='value'&&f.source!=='text') {document.getElementById(f.source==='lot'?'lotField':'expiryField').value=value;}
+  else f[key]=value;
+  updateDesign=UpdateCore.validateDesign(updateDesign);updatePreview();
+}
+function moveDesignField(id,step) {
+  const index=updateDesign.fields.findIndex(f=>f.id===id),target=index+step;
+  if (target<0||target>=updateDesign.fields.length) return;
+  [updateDesign.fields[index],updateDesign.fields[target]]=[updateDesign.fields[target],updateDesign.fields[index]];renderDesignEditor();updatePreview();
+}
+function addDesignField() {
+  if (updateDesign.fields.length>=22) {notice('Se admiten hasta 20 campos adicionales por plantilla.');return;}
+  updateDesign.enabled=true;updateDesign.fields.push({id:'text_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),source:'text',name:'Cantidad',value:'10',visible:true,zone:'bottom',align:'center'});renderDesignEditor();updatePreview();
+}
+function removeDesignField(id) {updateDesign.fields=updateDesign.fields.filter(f=>f.id!==id||f.source!=='text');renderDesignEditor();updatePreview();}
+function resetDesign() {updateDesign=UpdateCore.defaultDesign();renderDesignEditor();updatePreview();notice('Diseño predeterminado restaurado. No se modificó el historial. Para conservarlo, pulsa Guardar diseño.');}
+function saveDesign() {if(LocalData.write(UpdateKeys.design,UpdateCore.validateDesign(updateDesign)))notice('Diseño guardado en este navegador.');}
+function saveDesignTemplate() {
+  const name=document.getElementById('designTemplateName').value.trim();
+  if (!name||name.length>60) {notice('Escribe un nombre de plantilla de 1 a 60 caracteres.');return;}
+  const list=Object.entries(updateTemplates).filter(([key])=>key!==name);
+  if (list.length>=20) {notice('Puedes guardar hasta 20 plantillas. Reutiliza un nombre existente.');return;}
+  const next=Object.fromEntries([...list,[name,UpdateCore.validateDesign(updateDesign)]]);
+  if(LocalData.write(UpdateKeys.templates,next)){updateTemplates=next;renderTemplateOptions();notice('Plantilla guardada en este navegador.');}
+}
+function renderTemplateOptions() {
+  const select=document.getElementById('designTemplateSelect');select.innerHTML='';
+  const empty=document.createElement('option');empty.value='';empty.textContent='Selecciona una plantilla';select.appendChild(empty);
+  for (const name of Object.keys(updateTemplates)) {const option=document.createElement('option');option.value=name;option.textContent=name;select.appendChild(option);}
+}
+function useDesignTemplate() {
+  const name=document.getElementById('designTemplateSelect').value;
+  if (!name||!Object.hasOwn(updateTemplates,name)) return;
+  try {updateDesign=UpdateCore.validateDesign(updateTemplates[name]);renderDesignEditor();updatePreview();} catch(e){notice(e.message);}
+}
+function exportDesignTemplate() {downloadBlob(new Blob([JSON.stringify(UpdateCore.validateDesign(updateDesign),null,2)],{type:'application/json'}),'Plantilla_etiquetas_Identical.json');}
+async function importDesignTemplate(event) {
+  const file=event.target.files&&event.target.files[0];
+  if (!file) return;
+  try {if(file.size>50000)throw Error('La plantilla es demasiado grande.');updateDesign=UpdateCore.validateDesign(JSON.parse(await file.text()));renderDesignEditor();updatePreview();notice('Plantilla importada. Guarda el diseño si deseas conservarla en este navegador.');} catch(e){notice(e.message||'La plantilla no es válida.');} finally {event.target.value='';}
+}
+function renderDesignEditor() {
+  document.getElementById('enableDesign').checked=updateDesign.enabled;
+  const root=document.getElementById('designFields');root.innerHTML='';
+  for (const [index,field] of updateDesign.fields.entries()) {
+    const row=document.createElement('div');row.className='field-row';
+    const group=document.createElement('div');group.className='field-name';
+    const visible=document.createElement('input');visible.type='checkbox';visible.checked=field.visible;visible.id='visible_'+field.id;visible.onchange=()=>{changeDesignField(field.id,'visible',visible.checked);};
+    const title=document.createElement('label');title.htmlFor=visible.id;title.textContent=field.source==='text'?'Campo adicional '+(index+1):field.source==='lot'?'Lote original':'Vencimiento original';title.style.margin='0';group.append(visible,title);row.appendChild(group);
+    const fields=document.createElement('div');fields.className='config-fields';
+    const control=(label,input)=>{const cell=document.createElement('div'),text=document.createElement('label');input.id='design_'+field.id+'_'+label.replace(/\s/g,'');text.htmlFor=input.id;text.textContent=label;cell.append(text,input);fields.appendChild(cell);};
+    const name=document.createElement('input');name.value=field.name;name.maxLength=60;name.oninput=()=>changeDesignField(field.id,'name',name.value);control('Nombre',name);
+    const value=document.createElement('input');value.type=field.source==='expiry'?'date':'text';value.maxLength=500;value.value=field.source==='text'?field.value:document.getElementById(field.source==='lot'?'lotField':'expiryField').value;value.oninput=()=>changeDesignField(field.id,'value',value.value);value.dataset.designSource=field.source;control('Valor',value);
+    const makeSelect=(key,label,options)=>{const select=document.createElement('select');for(const [v,t] of options){const option=document.createElement('option');option.value=v;option.textContent=t;select.appendChild(option);}select.value=field[key];select.onchange=()=>changeDesignField(field.id,key,select.value);control(label,select);};
+    makeSelect('zone','Posición',[['top','Superior'],['bottom','Inferior'],['left','Lateral izquierdo'],['right','Lateral derecho']]);makeSelect('align','Alineación',[['left','Izquierda'],['center','Centro'],['right','Derecha']]);
+    row.appendChild(fields);
+    const actions=document.createElement('div');actions.className='field-buttons';
+    for(const [label,step] of [['↑ Subir',-1],['↓ Bajar',1]]){const button=document.createElement('button');button.type='button';button.className='btn btn-soft';button.textContent=label;button.disabled=index+step<0||index+step>=updateDesign.fields.length;button.onclick=()=>moveDesignField(field.id,step);actions.appendChild(button);}
+    if(field.source==='text'){const remove=document.createElement('button');remove.type='button';remove.className='btn btn-danger';remove.textContent='Eliminar campo';remove.onclick=()=>removeDesignField(field.id);actions.appendChild(remove);}
+    row.appendChild(actions);root.appendChild(row);
+  }
+}
+
+function historyJobSnapshot() {
+  const conf=modeConf();
+  return {date:new Date().toLocaleString('es-PE',{timeZone:'America/Lima'}),createdAt:new Date().toISOString(),code:selectedProduct.code,desc:selectedProduct.desc,id:selectedProduct.id,um:selectedProduct.um,type:selectedProduct.type,lot:document.getElementById('lotField').value.trim(),exp:document.getElementById('expiryField').value,format:currentFormatName(),mode:paperMode,width:conf.width,height:conf.height,qty:quantity(true),payload:qrPayload(),...(updateDesign.enabled?{design:UpdateCore.validateDesign(updateDesign)}:{})};
+}
+function storeJobHistory(item) {
+  const updated=[item,...historyData].slice(0,250);
+  if(!LocalData.write(STORAGE_KEYS.history,updated))return false;
+  historyData=updated;renderHistory();return true;
+}
+saveHistory = function(silent=false) {
+  try {if(!selectedProduct)return originalSaveHistory(silent);quantity(true);if(!modeConf().configured)return originalSaveHistory(silent);const saved=storeJobHistory(historyJobSnapshot());if(saved&&!silent)notice('Guardado en el historial.');return saved;}catch(e){if(!silent)notice(e.message);return false;}
+};
+function releasePrint() {
+  updatePrintBusy=Math.max(0,updatePrintBusy-1);
+  if(!updatePrintBusy&&updateSharedPending){const pending=updateSharedPending;updateSharedPending=null;originalApplySharedProducts(pending.items,pending.data);}
+}
+printLabels = function() {
+  let job,entry;
+  try {job=validateLabelJob();entry=historyJobSnapshot();}catch(e){notice(e.message);return false;}
+  const win=window.open('','_blank');
+  if(!win){notice('Permite las ventanas de impresión o usa PDF para celular.');return false;}
+  updatePrintBusy++;
+  win.document.open();win.document.write(printDocument(job));win.document.close();
+  const invoke=()=>{if(!fitTickets(win.document)){notice('El contenido no cabe completo. Ajusta el diseño o elige una etiqueta mayor.');return false;}win.focus();win.print();return true;};
+  win.document.getElementById('invokePrint').onclick=invoke;
+  waitImages(win.document).then(()=>{if(invoke())storeJobHistory(entry);}).catch(e=>notice(e.message)).finally(releasePrint);
+  return true;
+};
+exportLabelPdf = async function() {
+  const button=document.getElementById('pdfButton');if(button.disabled)return;
+  let frame,locked=false;
+  try {
+    const job=validateLabelJob(),entry=historyJobSnapshot(),html=printDocument(job);
+    if(typeof html2canvas==='undefined'||!window.jspdf)throw Error('No se pudo cargar la exportación PDF.');
+    button.disabled=true;button.textContent='Generando PDF…';updatePrintBusy++;locked=true;
+    frame=document.createElement('iframe');frame.style.cssText='position:absolute;left:-12000px;top:0;width:1000px;height:2000px;border:0';frame.setAttribute('aria-hidden','true');document.body.appendChild(frame);
+    const doc=frame.contentDocument;doc.open();doc.write(html);doc.close();doc.querySelector('.print-toolbar').remove();await waitImages(doc);
+    if(!fitTickets(doc))throw Error('Los textos no caben completos. Cambia el diseño o elige un formato mayor.');
+    const {jsPDF}=window.jspdf,orientation=job.conf.width>job.conf.height?'landscape':'portrait';
+    const pdf=new jsPDF({orientation,unit:'mm',format:[job.conf.width,job.conf.height],compress:true});
+    const sheets=Array.from(doc.querySelectorAll('.label-sheet'));
+    for(let i=0;i<sheets.length;i++){if(i)pdf.addPage([job.conf.width,job.conf.height],orientation);const canvas=await html2canvas(sheets[i],{scale:203/96,backgroundColor:'#fff',logging:false});pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,job.conf.width,job.conf.height,undefined,'FAST');}
+    downloadBlob(pdf.output('blob'),'Etiquetas_'+entry.code.replace(/[^a-z0-9_-]/gi,'_')+'.pdf');storeJobHistory(entry);notice('PDF generado con '+job.pages+' etiquetas físicas.');
+  }catch(e){notice(e.message||'No se pudo generar el PDF.');}finally{if(frame)frame.remove();button.disabled=false;button.textContent='📄 PDF para celular';if(locked)releasePrint();}
+};
+
+function locationSheetsHTML() {
+  const codes=UpdateCore.locations(document.getElementById('locationCodes').value),count=Number(document.getElementById('locationsPerSheet').value),mode=document.getElementById('locationSecondary').value;
+  const pages=UpdateCore.locationPages(codes,count),size={3:10.5,4:8.8,5:7.5,6:6.5}[count],small={3:2.6,4:2.3,5:2,6:2}[count];
+  return {codes,count,pages,html:pages.map(page=>'<div class="location-sheet" style="grid-template-rows:repeat('+count+',minmax(0,1fr))">'+Array.from({length:count},(_,i)=>{const code=page[i]||'',secondary=UpdateCore.secondary(code,mode);return '<div class="location-ticket"><div><div class="location-code" style="font-size:'+size+'mm">'+esc(code)+'</div>'+(secondary?'<div class="location-secondary" style="font-size:'+small+'mm">'+esc(secondary)+'</div>':'')+'</div></div>';}).join('')+'</div>').join('')};
+}
+function fitLocationSheets(root) {
+  let fits=true;
+  root.querySelectorAll('.location-ticket').forEach(ticket=>{
+    if(!ticket.clientHeight){fits=false;return;}
+    const inner=ticket.firstElementChild,code=inner.querySelector('.location-code');
+    const view=ticket.ownerDocument.defaultView;
+    while((inner.scrollWidth>ticket.clientWidth-14||inner.scrollHeight>ticket.clientHeight-8)&&parseFloat(view.getComputedStyle(code).fontSize)>10){code.style.fontSize=(parseFloat(view.getComputedStyle(code).fontSize)*.95)+'px';}
+    if(inner.scrollWidth>ticket.clientWidth-10||inner.scrollHeight>ticket.clientHeight-5)fits=false;
+  });
+  return fits;
+}
+function resizeLocationPreview() {
+  const root=document.getElementById('locationPreview');if(!root)return;
+  const scale=Math.min(1.12,Math.max(.2,(root.clientWidth-36)/(76*96/25.4)));
+  root.querySelectorAll('.location-frame').forEach(frame=>{frame.style.width=76*96/25.4*scale+'px';frame.style.height=76*96/25.4*scale+'px';frame.firstElementChild.style.transform='scale('+scale+')';});
+}
+function updateLocationPreview() {
+  const root=document.getElementById('locationPreview'),status=document.getElementById('locationStatus');
+  try {
+    const job=locationSheetsHTML();root.innerHTML='';
+    const temp=document.createElement('div');temp.innerHTML=job.html;
+    while(temp.firstElementChild){const frame=document.createElement('div');frame.className='location-frame';frame.appendChild(temp.firstElementChild);root.appendChild(frame);}
+    document.getElementById('locationTotal').textContent=job.codes.length+' ubicaciones · '+job.pages.length+' etiquetas físicas de 76 × 76 mm · '+job.count+' tickets por etiqueta';
+    resizeLocationPreview();
+    status.textContent=job.codes.length&&!fitLocationSheets(root)?'Algún texto no cabe. Acórtalo o usa menos divisiones antes de imprimir.':'';
+  }catch(e){root.innerHTML='';status.textContent=e.message;document.getElementById('locationTotal').textContent='';}
+}
+function generateLocationSequence() {
+  try {document.getElementById('locationCodes').value=UpdateCore.sequence(document.getElementById('locationStart').value,Number(document.getElementById('locationSequenceCount').value)).join('\n');updateLocationPreview();}catch(e){notice(e.message);}
+}
+function locationPrintDocument(job) {
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Ubicaciones Identical</title><style>*{box-sizing:border-box}html,body{margin:0;padding:0;background:white}@page{size:76mm 76mm;margin:0}.location-sheet{break-after:page;page-break-after:always;break-inside:avoid;page-break-inside:avoid}.location-sheet:last-child{break-after:auto;page-break-after:auto}'+UPDATE_LABEL_CSS+'@media print{.print-toolbar{display:none}}.print-toolbar{padding:14px;background:#edf5fb;font:14px Arial}</style></head><body><div class="print-toolbar"><button id="invokePrint">Imprimir ubicaciones</button><p>'+job.codes.length+' ubicaciones en '+job.pages.length+' etiquetas físicas. Papel 76 × 76 mm, escala 100 %, sin márgenes ni encabezados.</p></div>'+job.html+'</body></html>';
+}
+function printLocations() {
+  let job;try{job=locationSheetsHTML();if(!job.codes.length)throw Error('Escribe al menos una ubicación.');}catch(e){notice(e.message);return false;}
+  const win=window.open('','_blank');if(!win){notice('Permite la ventana de impresión de ubicaciones.');return false;}
+  win.document.open();win.document.write(locationPrintDocument(job));win.document.close();
+  const invoke=()=>{if(!fitLocationSheets(win.document)){notice('Una ubicación no cabe completa. Acorta el texto o usa menos divisiones.');return;}win.focus();win.print();};
+  win.document.getElementById('invokePrint').onclick=invoke;waitImages(win.document).then(invoke).catch(e=>notice(e.message));return true;
+}
+openPage = function(id) {originalOpenPage(id);if(id==='locations')updateLocationPreview();};
+function initializeProductionUpdate() {
+  document.getElementById('labelStyles').textContent=LABEL_CSS+UPDATE_LABEL_CSS;
+  try{updateDesign=UpdateCore.validateDesign(LocalData.read(UpdateKeys.design,UpdateCore.defaultDesign()));}catch(e){notice('No se pudo leer el diseño; se conserva el dato guardado y se utiliza el predeterminado.');}
+  const savedTemplates=LocalData.read(UpdateKeys.templates,{});
+  if(savedTemplates&&typeof savedTemplates==='object'&&!Array.isArray(savedTemplates))for(const [name,data] of Object.entries(savedTemplates).slice(0,20)){try{Object.defineProperty(updateTemplates,name,{value:UpdateCore.validateDesign(data),enumerable:true,writable:true,configurable:true});}catch(e){}}
+  document.getElementById('enableDesign').onchange=e=>{updateDesign.enabled=e.target.checked;updatePreview();};
+  document.getElementById('designTemplateFile').addEventListener('change',importDesignTemplate);
+  ['lotField','expiryField'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{document.querySelectorAll('[data-design-source="'+(id==='lotField'?'lot':'expiry')+'"]').forEach(el=>el.value=document.getElementById(id).value);}));
+  ['locationCodes','locationsPerSheet','locationSecondary'].forEach(id=>document.getElementById(id).addEventListener('input',updateLocationPreview));
+  window.addEventListener('resize',resizeLocationPreview);
+  renderDesignEditor();renderTemplateOptions();
+}
+setupAdditionalControls();initializeProductionUpdate();updateBaseStatus();searchProducts();showSelected();updatePreview();renderHistory();initializeSharedBase();
+
 </script>
 </body>
 </html>
