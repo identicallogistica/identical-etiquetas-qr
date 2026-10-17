@@ -1040,7 +1040,9 @@ const originalPrintDocument = printDocument, originalFitTickets = fitTickets, or
 const originalSaveHistory = saveHistory, originalOpenPage = openPage, originalApplySharedProducts = applySharedProducts;
 applySharedProducts = function(items,data) {
   if(updatePrintBusy){updateSharedPending={items,data};return;}
-  return originalApplySharedProducts(items,data);
+  const result=originalApplySharedProducts(items,data);
+  if(document.activeElement!==document.getElementById('searchInput'))document.getElementById('results').innerHTML='';
+  return result;
 };
 searchProducts = function(reset=true) {
   const box=document.getElementById('results'),query=document.getElementById('searchInput').value;
@@ -1189,7 +1191,7 @@ saveHistory = function(silent=false) {
 };
 function releasePrint() {
   updatePrintBusy=Math.max(0,updatePrintBusy-1);
-  if(!updatePrintBusy&&updateSharedPending){const pending=updateSharedPending;updateSharedPending=null;originalApplySharedProducts(pending.items,pending.data);}
+  if(!updatePrintBusy&&updateSharedPending){const pending=updateSharedPending;updateSharedPending=null;applySharedProducts(pending.items,pending.data);}
 }
 printLabels = function() {
   let job,entry;
