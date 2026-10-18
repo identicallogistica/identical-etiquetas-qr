@@ -1281,6 +1281,171 @@ function initializeProductionUpdate() {
   window.addEventListener('resize',resizeLocationPreview);
   renderDesignEditor();renderTemplateOptions();
 }
+/* INICIO SINCRONIZACION PRODUCTOS 20261018 */
+/* Lectura automática de PRODUCTOS; importación original como respaldo explícito. */
+SHARED_BASE_CONFIG.pollMs = 180000;
+const SOURCE_CACHE_KEY = 'identical_source_catalog_cache_v1';
+Object.assign(sharedState, {catalogMode:'automatic', source:'', manualRevision:'', checkedAt:'', lastError:''});
+
+function syncTime(value) {
+  const date = new Date(value);
+  return value && Number.isFinite(date.getTime()) ? date.toLocaleString('es-PE') : '';
+}
+
+function installCatalogControls() {
+  const panel = document.getElementById('sharedBasePanel');
+  if (!panel) return;
+  panel.querySelector('b').textContent = 'Catálogo de PRODUCTOS';
+  document.getElementById('syncBaseButton').textContent = 'Actualizar productos';
+  document.getElementById('saveBaseButton').textContent = 'Guardar respaldo compartido';
+  const actions = panel.querySelector('.actions');
+  if (!document.getElementById('manualCatalogButton')) {
+    for (const [id, title, mode] of [['manualCatalogButton','Usar respaldo manual','manual'],['automaticCatalogButton','Volver a PRODUCTOS','automatic']]) {
+      const button = document.createElement('button');
+      button.id=id; button.type='button'; button.className='btn btn-soft'; button.textContent=title;
+      button.onclick=()=>useSharedCatalog(mode); actions.appendChild(button);
+    }
+  }
+  document.getElementById('baseStorageHelp').textContent = 'PRODUCTOS se consulta al abrir, al volver a la página y cada 3 minutos. Actualizar productos consulta la hoja en ese momento. La carga manual guarda un respaldo separado; no modifica PRODUCTOS. El historial y los ajustes de impresión se conservan en cada equipo.';
+  document.querySelector('label[for="basePaste"]').textContent = 'Respaldo manual: pega las filas con encabezados o importa tu archivo exportado';
+  document.querySelector('label[for="baseUpdateMode"]').textContent = 'Al guardar el respaldo manual';
+}
+
+async function useSharedCatalog(mode) {
+  if (sharedState.refreshing) return notice('Espera a que termine la actualización.');
+  if (updatePrintBusy) return notice('Termina la impresión para cambiar el catálogo.');
+  if (!['automatic','manual'].includes(mode)) return;
+  sharedState.catalogMode=mode; sharedState.revision=''; sharedState.generation=-1;
+  sharedState.source=''; sharedState.connected=false; sharedState.lastError='';
+  return refreshSharedBase(true);
+}
+
+const originalMigrationForSource = renderMigration;
+renderMigration = function() {
+  originalMigrationForSource();
+  if (sharedState.catalogMode === 'automatic') {
+    document.getElementById('shareExistingButton').hidden=true;
+    const note=document.getElementById('migrationNote');
+    if (!note.hidden) note.textContent='Tu base anterior está conservada como respaldo. PRODUCTOS se actualiza automáticamente.';
+  }
+};
+
+renderSharedState = function() {
+  if (!sharedState.enabled) return;
+  const time=syncTime(sharedState.checkedAt || sharedState.updatedAt);
+  let message;
+  if (sharedState.pending) message='Esperando que confirmes el respaldo manual en la ventana de Google. PRODUCTOS sigue siendo la fuente automática.';
+  else if (!sharedState.connected) message='Sincronización pendiente · '+products.length+' productos conservados'+(time?' · última lectura válida: '+time:'')+'. '+(sharedState.lastError || 'Conectando con PRODUCTOS…');
+  else if (sharedState.catalogMode === 'manual') message='Respaldo manual temporal · '+sharedState.serverCount+' productos. Pulsa Volver a PRODUCTOS para continuar con la hoja automática.';
+  else if (sharedState.source === 'PRODUCTOS') message='PRODUCTOS · '+sharedState.serverCount+' productos · sincronizado'+(time?' · '+time:'')+' · actualización automática cada 3 minutos.';
+  else message='Catálogo compartido conectado. La conexión automática con PRODUCTOS todavía no está activa.';
+  sharedStatus(message,!sharedState.connected);
+  document.getElementById('saveBaseButton').disabled=sharedState.refreshing || Boolean(sharedState.pending);
+  for (const id of ['manualCatalogButton','automaticCatalogButton']) {
+    const button=document.getElementById(id);
+    if (button) { button.disabled=sharedState.refreshing; button.hidden=(id==='manualCatalogButton') === (sharedState.catalogMode==='manual'); }
+  }
+};
+
+requestSharedSnapshot = function(manual=false) {
+  return new Promise((resolve,reject)=>{
+    const name='__identical_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const script=document.createElement('script'), url=new URL(SHARED_BASE_CONFIG.readUrl);
+    url.searchParams.set('callback',name);
+    if (sharedState.catalogMode==='manual') url.searchParams.set('catalog','manual');
+    if (manual) url.searchParams.set('refresh','1');
+    // En el primer arranque la caché antigua puede pertenecer al respaldo manual.
+    // Se solicita el catálogo completo hasta identificar la fuente de esa revisión.
+    if (sharedState.revision && (sharedState.catalogMode==='manual' || sharedState.source==='PRODUCTOS')) url.searchParams.set('revision',sharedState.revision);
+    if (sharedState.pending) url.searchParams.set('operation',sharedState.pending.id);
+    url.searchParams.set('_',String(Date.now()));
+    let done=false;
+    const finish=(error,data)=>{
+      if(done)return;done=true;clearTimeout(timer);script.remove();window[name]=()=>{};
+      setTimeout(()=>{delete window[name];},60000);error?reject(error):resolve(data);
+    };
+    window[name]=data=>finish(null,data);
+    script.onerror=()=>finish(Error('No se pudo contactar con Google. Se reintentará automáticamente.'));
+    const timer=setTimeout(()=>finish(Error('Google tardó demasiado. Se reintentará automáticamente.')),25000);
+    script.src=url.toString();script.async=true;document.head.appendChild(script);
+  });
+};
+
+const originalApplyForSource=applySharedProducts;
+applySharedProducts=function(items,data) {
+  const key=SHARED_KEYS.cache;
+  if(data.source==='PRODUCTOS') SHARED_KEYS.cache=SOURCE_CACHE_KEY;
+  try {
+    const result=originalApplyForSource(items,data);
+    if (!updatePrintBusy && data.source==='PRODUCTOS') {
+      const cached=readStored(SOURCE_CACHE_KEY,null);
+      if(cached && cached.revision===data.revision) {
+        cached.source='PRODUCTOS';cached.checkedAt=data.checkedAt;
+        LocalData.write(SOURCE_CACHE_KEY,cached);
+      }
+    }
+    return result;
+  } finally { SHARED_KEYS.cache=key; }
+};
+
+const originalQueueForSource=queueSharedPublish;
+queueSharedPublish=function(action,items,sourceText) {
+  if (!/^[a-f0-9]{64}$/.test(sharedState.manualRevision || '')) {
+    notice('Actualiza los productos antes de guardar el respaldo.');return false;
+  }
+  const revision=sharedState.revision;
+  sharedState.revision=sharedState.manualRevision;
+  try {return originalQueueForSource(action,items,sourceText);}
+  finally {sharedState.revision=revision;}
+};
+
+refreshSharedBase=async function(manual=false) {
+  if(!sharedState.enabled || sharedState.refreshing)return false;
+  sharedState.refreshing=true;document.getElementById('syncBaseButton').disabled=true;renderSharedState();
+  try {
+    const data=validateSharedSnapshot(await requestSharedSnapshot(manual));
+    if (data.generation<sharedState.generation) return false;
+    if (sharedState.catalogMode==='automatic' && data.source==='PRODUCTOS' && !data.count) throw Error('La hoja está vacía; se conserva la última base válida.');
+    if (!/^[a-f0-9]{64}$/.test(data.manualRevision || data.revision)) throw Error('La revisión del respaldo no es válida.');
+    const pending=Boolean(sharedState.pending);
+    completeSharedPublish(data);
+    if(pending && !sharedState.pending && data.source==='PRODUCTOS') notice('Respaldo manual guardado. La página continúa sincronizada con PRODUCTOS.');
+    if(!data.unchanged) applySharedProducts(data.products,data);
+    else if(data.revision!==sharedState.revision) throw Error('Actualiza nuevamente para recibir el catálogo completo.');
+    Object.assign(sharedState,{revision:data.revision,generation:data.generation,serverCount:data.count,updatedAt:data.updatedAt || '',checkedAt:data.checkedAt || new Date().toISOString(),manualRevision:data.manualRevision || data.revision,source:data.source || '',connected:true,lastError:''});
+    if (data.unchanged && data.source==='PRODUCTOS') {
+      const cached=readStored(SOURCE_CACHE_KEY,null);
+      if(cached && cached.revision===data.revision){cached.checkedAt=sharedState.checkedAt;LocalData.write(SOURCE_CACHE_KEY,cached);}
+    }
+    if(manual && !sharedState.pending) notice(data.source==='PRODUCTOS'?'PRODUCTOS actualizado: '+data.count+' productos.':'Respaldo manual: '+data.count+' productos.');
+    return true;
+  } catch(error) {
+    sharedState.connected=false;sharedState.lastError=String(error.message || error).slice(0,600);
+    if(manual) notice(sharedState.lastError+' Tus productos guardados se conservan.');
+    return false;
+  } finally {
+    if(sharedState.pending && Date.now()-sharedState.pending.startedAt>10*60*1000){
+      sharedState.pending=null;LocalData.remove(SHARED_KEYS.pending);
+      notice('La publicación del respaldo no se confirmó. Puedes guardarlo nuevamente.');
+    }
+    sharedState.refreshing=false;document.getElementById('syncBaseButton').disabled=false;
+    renderSharedState();scheduleSharedRefresh();
+  }
+};
+
+const originalInitializeForSource=initializeSharedBase;
+initializeSharedBase=function() {
+  const key=SHARED_KEYS.cache, cached=readStored(SOURCE_CACHE_KEY,null);
+  if(cached && cached.source==='PRODUCTOS') SHARED_KEYS.cache=SOURCE_CACHE_KEY;
+  try { originalInitializeForSource(); }
+  finally {SHARED_KEYS.cache=key;}
+  if(cached && cached.source==='PRODUCTOS'){
+    sharedState.source='PRODUCTOS';sharedState.checkedAt=cached.checkedAt || '';
+  } else { sharedState.revision='';sharedState.generation=-1; }
+  installCatalogControls();renderSharedState();
+};
+
+/* FIN SINCRONIZACION PRODUCTOS 20261018 */
 setupAdditionalControls();initializeProductionUpdate();updateBaseStatus();searchProducts();showSelected();updatePreview();renderHistory();initializeSharedBase();
 
 </script>
