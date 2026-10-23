@@ -677,7 +677,7 @@ textarea{min-height:170px;resize:vertical}
 
             <div class="actions">
               <button class="btn btn-primary" onclick="printLabels()">🖨 Imprimir etiquetas</button>
-              <button class="btn btn-soft" onclick="saveHistory()">💾 Guardar en historial</button><button id="pdfButton" class="btn btn-soft" type="button" onclick="exportLabelPdf()">📄 PDF para celular</button>
+              <button class="btn btn-soft" onclick="saveHistory()">💾 Registrar QR en Sheets</button><button id="pdfButton" class="btn btn-soft" type="button" onclick="exportLabelPdf()">📄 PDF para celular</button><button class="btn btn-soft" type="button" onclick="connectQrHistory()">Conectar historial</button><p id="qrHistoryCompact" class="device-note" role="status" aria-live="polite">Preparando historial…</p>
             </div>
           </div>
         </div>
@@ -737,10 +737,13 @@ G1.3</textarea>
 
       <section id="history" class="page">
         <div class="card">
-          <div class="card-title"><span class="mini">◷</span>Historial reciente</div>
+          <div class="card-title"><span class="mini">◷</span>Historial QR en Google Sheets</div>
+          <p id="qrHistoryStatus" class="status" role="status" aria-live="polite">Preparando historial…</p>
+          <div class="actions"><button class="btn btn-blue" type="button" onclick="connectQrHistory()">Conectar historial</button><button class="btn btn-soft" type="button" onclick="historyLoadPage(false).catch(e=>historyStatus(e.message))">Actualizar historial</button><button id="historyOlderButton" class="btn btn-soft" type="button" onclick="historyLoadPage(true).catch(e=>historyStatus(e.message))" disabled>Ver anteriores</button></div>
+          <p class="device-note">Aquí se registran QR y etiquetas. La cantidad de etiquetas no modifica el stock. El historial antiguo de cada equipo se traslada al conectarlo.</p>
           <div class="history-wrap">
             <table class="history-table">
-              <thead><tr><th>Fecha</th><th>Código</th><th>Producto</th><th>Lote</th><th>Vencimiento</th><th>Formato</th><th>Cantidad</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>Código</th><th>Producto</th><th>Lote</th><th>Vencimiento</th><th>Formato</th><th>Etiquetas</th></tr></thead>
               <tbody id="historyBody"></tbody>
             </table>
           </div>
@@ -1202,7 +1205,7 @@ printLabels = function() {
   win.document.open();win.document.write(printDocument(job));win.document.close();
   const invoke=()=>{if(!fitTickets(win.document)){notice('El contenido no cabe completo. Ajusta el diseño o elige una etiqueta mayor.');return false;}win.focus();win.print();return true;};
   win.document.getElementById('invokePrint').onclick=invoke;
-  waitImages(win.document).then(()=>{if(invoke())storeJobHistory(entry);}).catch(e=>notice(e.message)).finally(releasePrint);
+  waitImages(win.document).then(async()=>{if(!fitTickets(win.document)){notice('El contenido no cabe completo. Ajusta el diseño o elige una etiqueta mayor.');return;}entry.historyAction='SOLICITUD_IMPRESION';if(await storeJobHistory(entry))invoke();}).catch(e=>notice(e.message)).finally(releasePrint);
   return true;
 };
 exportLabelPdf = async function() {
@@ -1219,7 +1222,7 @@ exportLabelPdf = async function() {
     const pdf=new jsPDF({orientation,unit:'mm',format:[job.conf.width,job.conf.height],compress:true});
     const sheets=Array.from(doc.querySelectorAll('.label-sheet'));
     for(let i=0;i<sheets.length;i++){if(i)pdf.addPage([job.conf.width,job.conf.height],orientation);const canvas=await html2canvas(sheets[i],{scale:203/96,backgroundColor:'#fff',logging:false});pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,job.conf.width,job.conf.height,undefined,'FAST');}
-    downloadBlob(pdf.output('blob'),'Etiquetas_'+entry.code.replace(/[^a-z0-9_-]/gi,'_')+'.pdf');storeJobHistory(entry);notice('PDF generado con '+job.pages+' etiquetas físicas.');
+    entry.historyAction='PDF_GENERADO';if(!await storeJobHistory(entry))throw Error('No se generó la entrega porque el registro no pudo conservarse.');downloadBlob(pdf.output('blob'),'Etiquetas_'+entry.code.replace(/[^a-z0-9_-]/gi,'_')+'.pdf');notice('PDF generado con '+job.pages+' etiquetas. El estado de guardado se muestra debajo.');
   }catch(e){notice(e.message||'No se pudo generar el PDF.');}finally{if(frame)frame.remove();button.disabled=false;button.textContent='📄 PDF para celular';if(locked)releasePrint();}
 };
 
@@ -1306,7 +1309,7 @@ function installCatalogControls() {
       button.onclick=()=>useSharedCatalog(mode); actions.appendChild(button);
     }
   }
-  document.getElementById('baseStorageHelp').textContent = 'PRODUCTOS se consulta al abrir, al volver a la página y cada 3 minutos. Actualizar productos consulta la hoja en ese momento. La carga manual guarda un respaldo separado; no modifica PRODUCTOS. El historial y los ajustes de impresión se conservan en cada equipo.';
+  document.getElementById('baseStorageHelp').textContent = 'PRODUCTOS se consulta al abrir, al volver a la página y cada 3 minutos. Actualizar productos consulta la hoja en ese momento. La carga manual guarda un respaldo separado; no modifica PRODUCTOS. Los QR se guardan en HISTORIAL_QR; solo los registros pendientes y los ajustes de impresión permanecen en cada equipo.';
   document.querySelector('label[for="basePaste"]').textContent = 'Respaldo manual: pega las filas con encabezados o importa tu archivo exportado';
   document.querySelector('label[for="baseUpdateMode"]').textContent = 'Al guardar el respaldo manual';
 }
@@ -1447,6 +1450,144 @@ initializeSharedBase=function() {
 
 /* FIN SINCRONIZACION PRODUCTOS 20261018 */
 setupAdditionalControls();initializeProductionUpdate();updateBaseStatus();searchProducts();showSelected();updatePreview();renderHistory();initializeSharedBase();
+
+</script>
+<script>
+const HistoryCore = {
+  fields:['date','createdAt','code','desc','id','um','type','lot','exp','format','mode','width','height','qty','payload','design'],
+  original(item) { const out={};for(const k of Object.keys(item).sort())if(!['syncId','cloudSavedAt','deviceId','source','action','originalJson'].includes(k))out[k]=item[k];return out; },
+  canonical(item) { return JSON.stringify(this.fields.map(k=>item[k] == null ? null : item[k])); },
+  async digest(value) { const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));return Array.from(new Uint8Array(bytes),b=>b.toString(16).padStart(2,'0')).join(''); },
+  async legacy(items,deviceId) { const counts=new Map(),result=[];for(const item of items){if(!item||typeof item!=='object')throw Error('Hay un registro antiguo que necesita revisión. El historial original se conserva.');const hash=await this.digest(this.canonical(item)),n=(counts.get(hash)||0)+1;counts.set(hash,n);result.push(this.record(item,item.syncId||'legacy-'+hash+'-'+n,deviceId,'migracion',item.action||'HISTORIAL_ANTERIOR'));}return result; },
+  record(item,syncId,deviceId,source,action) { const out={syncId};for(const k of this.fields)if(item[k]!=null)out[k]=item[k];out.deviceId=item.deviceId||deviceId;out.source=item.source||source;out.action=item.action||action;out.originalJson=item.originalJson||JSON.stringify(this.original(item));return out; }
+};
+const qrHistoryState={db:'production',channel:crypto.randomUUID(),peer:null,peerOrigin:'',ready:false,pending:new Map(),cloud:[],cursor:0,total:0,loading:false,flushing:false,migrating:false,pendingCount:0,blocked:'',popup:null,storage:null,timer:null,deviceId:'',legacy:null,refreshTimer:null};
+const qrHistoryOriginalRender=renderHistory;
+function historyStatus(message) { const el=document.getElementById('qrHistoryStatus');if(el)el.textContent=message;const compact=document.getElementById('qrHistoryCompact');if(compact)compact.textContent=message; }
+function historyOpenDatabase() {
+  return new Promise((resolve,reject)=>{
+    if(!window.indexedDB){reject(Error('Este navegador no permite conservar registros pendientes. Abre la página en un navegador normal.'));return;}
+    const request=indexedDB.open('identical_qr_history_queue_v1',1);
+    request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains('outbox'))db.createObjectStore('outbox',{keyPath:'syncId'});if(!db.objectStoreNames.contains('meta'))db.createObjectStore('meta',{keyPath:'key'});};
+    request.onsuccess=()=>{request.result.onversionchange=()=>request.result.close();resolve(request.result);};
+    request.onerror=()=>reject(request.error||Error('No se pudo abrir la cola de registros.'));
+    request.onblocked=()=>historyStatus('Cierra las otras pestañas antiguas para abrir el historial.');
+  });
+}
+function historyTransaction(stores,mode,work) {
+  return new Promise((resolve,reject)=>{let result;try{const tx=qrHistoryState.storage.transaction(stores,mode);result=work(tx);tx.oncomplete=()=>resolve(result);tx.onerror=()=>reject(tx.error||Error('No se pudo conservar el registro pendiente.'));tx.onabort=()=>reject(tx.error||Error('No se pudo conservar el registro pendiente.'));}catch(e){reject(e);}});
+}
+async function historyRead(store,key) { let value;await historyTransaction([store],'readonly',tx=>{const request=tx.objectStore(store).get(key);request.onsuccess=()=>{value=request.result;};});return value; }
+async function historyOutbox() { let result=[];await historyTransaction(['outbox'],'readonly',tx=>{const request=tx.objectStore('outbox').getAll();request.onsuccess=()=>{result=request.result;};});return result; }
+async function historyRefreshRows() {
+  const queue=await historyOutbox();qrHistoryState.pendingCount=queue.length;
+  const map=new Map(qrHistoryState.cloud.map(item=>[item.syncId,item]));
+  for(const item of queue)if(!map.has(item.syncId))map.set(item.syncId,item);
+  historyData=Array.from(map.values()).sort((a,b)=>String(b.createdAt||b.date||'').localeCompare(String(a.createdAt||a.date||'')));
+  qrHistoryOriginalRender();
+  const next=document.getElementById('historyOlderButton');if(next)next.disabled=!qrHistoryState.ready||!qrHistoryState.cursor||qrHistoryState.loading;
+  if(qrHistoryState.blocked)historyStatus(qrHistoryState.blocked+' · '+queue.length+' pendientes; se conservan en este equipo.');
+  else if(!qrHistoryState.ready)historyStatus('Conecta el historial con Google · '+queue.length+' registros pendientes de enviar.');
+  else historyStatus((qrHistoryState.db==='qa'?'PRUEBAS · ':'')+qrHistoryState.total+' registros en HISTORIAL_QR · '+queue.length+' pendientes'+(queue.length?' de enviar.':'. Todo guardado.'));
+}
+async function historyMigrateLegacy() {
+  if(qrHistoryState.migrating||!qrHistoryState.storage)return;
+  qrHistoryState.migrating=true;
+  try {
+    const raw=localStorage.getItem(STORAGE_KEYS.history);
+    if(!raw)return;
+    const items=JSON.parse(raw);if(!Array.isArray(items))throw Error('El historial antiguo necesita revisión y se conserva intacto.');
+    const records=await HistoryCore.legacy(items,qrHistoryState.deviceId);
+    await historyTransaction(['outbox','meta'],'readwrite',tx=>{for(const item of records){const lookup=tx.objectStore('meta').get('synced:'+item.syncId);lookup.onsuccess=()=>{if(!lookup.result)tx.objectStore('outbox').put(item);};}});
+    qrHistoryState.legacy={raw,ids:records.map(item=>item.syncId)};
+    await historyCleanupLegacy();
+    await historyRefreshRows();
+  } catch(e){qrHistoryState.blocked=e.message;historyStatus(e.message);} finally{qrHistoryState.migrating=false;}
+}
+async function historyCleanupLegacy() {
+  const legacy=qrHistoryState.legacy;if(!legacy)return;
+  for(const id of legacy.ids)if(!await historyRead('meta','synced:'+id))return;
+  if(localStorage.getItem(STORAGE_KEYS.history)===legacy.raw){localStorage.removeItem(STORAGE_KEYS.history);qrHistoryState.legacy=null;}
+}
+function historySend(method,data={}) {
+  return new Promise((resolve,reject)=>{
+    const s=qrHistoryState;if(!s.ready||!s.peer){reject(Error('Conecta el historial con la cuenta empresarial.'));return;}
+    const requestId=crypto.randomUUID(),timer=setTimeout(()=>{s.pending.delete(requestId);s.ready=false;s.peer=null;reject(Error('Google tardó en responder. Los registros pendientes se conservan y se reintentarán.'));},45000);
+    s.pending.set(requestId,{resolve,reject,timer});
+    try{s.peer.postMessage({identicalHistory:1,channel:s.channel,requestId,method,...data},s.peerOrigin);}catch(e){clearTimeout(timer);s.pending.delete(requestId);reject(e);}
+  });
+}
+function historyReceive(event) {
+  const s=qrHistoryState,data=event.data;
+  if(!data||data.identicalHistory!==1||data.channel!==s.channel||!/^https:\/\/(?:[a-z0-9-]+-)?script\.googleusercontent\.com$/.test(event.origin))return;
+  if(data.type==='ready'){
+    if(data.db!==s.db||(s.ready&&s.peer&&event.source!==s.peer))return;
+    const wasReady=s.ready;s.peer=event.source;s.peerOrigin=event.origin;s.ready=true;s.blocked='';
+    if(!wasReady){historyLoadPage(false).catch(e=>{s.blocked=e.message;historyStatus(e.message);});historyFlush();}
+    return;
+  }
+  if(data.type==='locked'){if(s.ready&&event.source!==s.peer)return;s.blocked='Inicia sesión con identicallogistica@gmail.com y pulsa Conectar historial.';historyStatus(s.blocked);return;}
+  if(!s.ready||event.source!==s.peer||event.origin!==s.peerOrigin||data.type!=='response')return;
+  const request=s.pending.get(data.requestId);if(!request)return;clearTimeout(request.timer);s.pending.delete(data.requestId);
+  if(data.error)request.reject(Error(data.error));else if(!data.result||data.result.ok!==true)request.reject(Error('Google no confirmó el guardado.'));else request.resolve(data.result);
+}
+async function historyFlush() {
+  const s=qrHistoryState;if(s.flushing||!s.ready||!s.storage)return;
+  s.flushing=true;
+  try{
+    for(let round=0;round<20;round++){
+      const queued=await historyOutbox(),batch=queued.slice(0,25);if(!batch.length)break;
+      const result=await historySend('append',{records:batch}),ack=new Set(result.acknowledged||[]);
+      if(result.db!==s.db||ack.size!==batch.length||batch.some(item=>!ack.has(item.syncId)))throw Error('Google no confirmó todos los registros del lote. La cola se conserva.');
+      await historyTransaction(['outbox','meta'],'readwrite',tx=>{for(const item of batch){tx.objectStore('outbox').delete(item.syncId);if(item.source==='migracion')tx.objectStore('meta').put({key:'synced:'+item.syncId,value:true});}});
+      s.total=result.total;s.blocked='';
+      for(const item of batch)s.cloud.unshift({...item,cloudSavedAt:result.savedAt});s.cloud=Array.from(new Map(s.cloud.map(item=>[item.syncId,item])).values()).slice(0,Math.max(100,s.cloud.length));
+      await historyCleanupLegacy();await historyRefreshRows();
+    }
+    if(!s.pendingCount){await historyLoadPage(false);notice('Los registros QR están guardados en HISTORIAL_QR.');}
+  }catch(e){s.blocked=e.message;await historyRefreshRows();}finally{s.flushing=false;clearTimeout(s.timer);s.timer=setTimeout(()=>historyFlush(),60000);}
+}
+async function historyLoadPage(older=false) {
+  const s=qrHistoryState;if(s.loading||!s.ready)return;s.loading=true;
+  try{const result=await historySend('list',{beforeRow:older?s.cursor:0});if(!Array.isArray(result.records))throw Error('No se pudo leer el historial.');s.cloud=older?Array.from(new Map([...s.cloud,...result.records].map(item=>[item.syncId,item])).values()):result.records;s.cursor=result.nextCursor;s.total=result.total;s.blocked='';}finally{s.loading=false;await historyRefreshRows();}
+}
+function historyBridgeUrl() { const url=new URL(SHARED_BASE_CONFIG.readUrl);url.searchParams.set('view','history');url.searchParams.set('channel',qrHistoryState.channel);url.searchParams.set('db',qrHistoryState.db);if(qrHistoryState.db==='qa')url.searchParams.set('parentOrigin',location.origin);return url.toString(); }
+function connectQrHistory() {
+  const s=qrHistoryState;s.popup=window.open(historyBridgeUrl(),'identical_historial_qr','width=620,height=460');
+  if(!s.popup)historyStatus('Permite abrir la conexión de Google y pulsa Conectar historial otra vez.');else historyStatus('Conectando con Google; los registros pendientes se conservan.');
+}
+async function enqueueQrHistory(item,action='REGISTRO_QR') {
+  try{
+    await qrHistoryReady;
+    if(!qrHistoryState.storage)throw Error('No se pudo abrir el almacenamiento de pendientes. No se registró el QR.');
+    const record=HistoryCore.record(item,'qr-'+crypto.randomUUID(),qrHistoryState.deviceId,'pagina',action);
+    await historyTransaction(['outbox'],'readwrite',tx=>tx.objectStore('outbox').put(record));
+    await historyRefreshRows();historyFlush();
+    if(!qrHistoryState.ready)notice('Registro pendiente y protegido en este equipo. Pulsa Conectar historial para enviarlo a Google.');
+    else notice('QR registrado. Enviando a HISTORIAL_QR…');
+    return true;
+  }catch(e){notice('No se guardó el registro: '+e.message);return false;}
+}
+storeJobHistory=function(item){return enqueueQrHistory(item,item.historyAction||'REGISTRO_QR');};
+saveHistory=async function(silent=false){
+  try{if(!selectedProduct)throw Error('Selecciona un producto.');quantity(true);if(!modeConf().configured)throw Error(modeConf().problem);if(!qrHistoryState.ready)connectQrHistory();return await storeJobHistory(historyJobSnapshot());}catch(e){if(!silent)notice(e.message);return false;}
+};
+renderHistory=function(){qrHistoryOriginalRender();if(qrHistoryState.storage)historyRefreshRows().catch(e=>historyStatus(e.message));};
+const qrHistoryReady=(async()=>{
+  try{
+    qrHistoryState.storage=await historyOpenDatabase();
+    const device=await historyRead('meta','device');qrHistoryState.deviceId=device?device.value:crypto.randomUUID();
+    if(!device)await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put({key:'device',value:qrHistoryState.deviceId}));
+    await historyMigrateLegacy();await historyRefreshRows();
+    window.addEventListener('message',historyReceive);
+    const frame=document.createElement('iframe');frame.title='Conexión privada del historial QR';frame.hidden=true;frame.src=historyBridgeUrl();document.body.appendChild(frame);
+    window.addEventListener('online',()=>historyFlush());
+    window.addEventListener('storage',event=>{if(event.key===STORAGE_KEYS.history)historyMigrateLegacy().then(()=>historyFlush());});
+    window.addEventListener('focus',()=>{historyMigrateLegacy().then(()=>historyFlush());if(qrHistoryState.ready)historyLoadPage(false).catch(e=>historyStatus(e.message));});
+    qrHistoryState.refreshTimer=setInterval(()=>{if(!document.hidden&&qrHistoryState.ready)historyLoadPage(false).catch(e=>historyStatus(e.message));},180000);
+    return true;
+  }catch(e){qrHistoryState.blocked=e.message;historyStatus(e.message);return false;}
+})();
 
 </script>
 </body>
