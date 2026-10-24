@@ -1426,7 +1426,7 @@ function initializeProductionUpdate() {
 }
 /* INICIO SINCRONIZACION PRODUCTOS 20261018 */
 /* Lectura automática de PRODUCTOS; importación original como respaldo explícito. */
-SHARED_BASE_CONFIG.pollMs = 180000;
+SHARED_BASE_CONFIG.pollMs = 30000;
 const SOURCE_CACHE_KEY = 'identical_source_catalog_cache_v1';
 Object.assign(sharedState, {catalogMode:'automatic', source:'', manualRevision:'', checkedAt:'', lastError:''});
 
@@ -1480,7 +1480,7 @@ renderSharedState = function() {
   if (sharedState.pending) message='Esperando que confirmes el respaldo manual en la ventana de Google. PRODUCTOS sigue siendo la fuente automática.';
   else if (!sharedState.connected) message='Sincronización pendiente · '+products.length+' productos conservados'+(time?' · última lectura válida: '+time:'')+'. '+(sharedState.lastError || 'Conectando con PRODUCTOS…');
   else if (sharedState.catalogMode === 'manual') message='Respaldo manual temporal · '+sharedState.serverCount+' productos. Pulsa Volver a PRODUCTOS para continuar con la hoja automática.';
-  else if (sharedState.source === 'PRODUCTOS') message='PRODUCTOS · '+sharedState.serverCount+' productos · sincronizado'+(time?' · '+time:'')+' · actualización automática cada 3 minutos.';
+  else if (sharedState.source === 'PRODUCTOS') message='PRODUCTOS · '+sharedState.serverCount+' productos · sincronizado'+(time?' · '+time:'')+' · actualización automática cada 30 segundos.';
   else message='Catálogo compartido conectado. La conexión automática con PRODUCTOS todavía no está activa.';
   sharedStatus(message,!sharedState.connected);
   document.getElementById('saveBaseButton').disabled=sharedState.refreshing || Boolean(sharedState.pending);
@@ -1931,7 +1931,8 @@ function changeMovementMode(){
   document.getElementById('registerMovementButton').textContent=mode==='etiqueta'?'Registrar solo QR':mode==='ingreso'?'Registrar ingreso':mode==='salida'?'Registrar salida a sede':'Registrar traslado';movementFormChanged();
 }
 function movementSignatureOf(data){return JSON.stringify(movementSignatureFields.map(k=>data[k]==null?'':data[k]));}
-function movementFormChanged(){const button=document.getElementById('registerMovementButton');button.disabled=movementState.queuing;if(movementMode()==='etiqueta')return;try{const signature=movementSignature();button.disabled=button.disabled||signature===movementState.lastSignature||movementState.queue.some(r=>movementSignatureOf(r.value)===signature);}catch(e){}}
+function movementCanonicalSignature(signature){try{const values=JSON.parse(signature),code=values[movementSignatureFields.indexOf('code')],product=selectedProduct&&selectedProduct.code===code?selectedProduct:products.find(p=>p.code===code);if(product&&product.um)values[movementSignatureFields.indexOf('unit')]=product.um;return JSON.stringify(values);}catch(e){return signature;}}
+function movementFormChanged(){const button=document.getElementById('registerMovementButton');button.disabled=movementState.queuing;if(movementMode()==='etiqueta')return;try{const signature=movementCanonicalSignature(movementSignature());button.disabled=button.disabled||signature===movementCanonicalSignature(movementState.lastSignature)||movementState.queue.some(r=>movementCanonicalSignature(movementSignatureOf(r.value))===signature);}catch(e){}}
 function movementData(){
   const value=id=>document.getElementById(id).value.trim();if(!selectedProduct)throw Error('Selecciona un producto.');
   const amount=Number(value('movementAmount'));if(!Number.isFinite(amount)||amount<=0||amount>1000000000)throw Error('Escribe la cantidad del movimiento, mayor que cero y hasta 1000000000.');if(Math.abs(amount*1000000-Math.round(amount*1000000))>.0001)throw Error('La cantidad del movimiento admite hasta seis decimales.');
@@ -1983,7 +1984,7 @@ async function movementSyncPending(){
 }
 async function registerMovement(){
   if(movementState.queuing)return false;if(movementMode()==='etiqueta')return saveLabelHistoryOnly();
-  try{const data=movementData(),signature=movementSignatureOf(data);if(signature===movementState.lastSignature){movementStatus('Este movimiento ya está confirmado. Pulsa Nuevo movimiento para registrar otro.');return false;}if(movementState.queue.some(r=>movementSignatureOf(r.value)===signature))return retryMovement();
+  try{const data=movementData(),signature=movementCanonicalSignature(movementSignatureOf(data));if(signature===movementCanonicalSignature(movementState.lastSignature)){movementStatus('Este movimiento ya está confirmado. Pulsa Nuevo movimiento para registrar otro.');return false;}if(movementState.queue.some(r=>movementCanonicalSignature(movementSignatureOf(r.value))===signature))return retryMovement();
     if(!document.getElementById('expiryField').validity.valid)throw Error('Revisa el vencimiento.');if(!qrHistoryState.ready)connectQrHistory();movementState.queuing=true;movementFormChanged();
     await qrHistoryReady;if(!qrHistoryState.storage)throw Error('El navegador no permite conservar el registro. Usa Chrome o Safari en modo normal.');
     const snapshot=movementHistorySnapshot(data);data.connectionVersion=2;data.printSettings=movementPrintSettings();data.operationId=crypto.randomUUID();data.history=HistoryCore.record(snapshot,'qr-'+crypto.randomUUID(),qrHistoryState.deviceId,'pagina','MOVIMIENTO_'+data.mode.toUpperCase());data.history.source='pagina';data.history.action='MOVIMIENTO_'+data.mode.toUpperCase();
@@ -2008,6 +2009,7 @@ async function showMovementStock(){
 const saveLabelHistoryOnly=saveHistory;saveHistory=registerMovement;
 historyBridgeUrl=function(){const url=new URL(MOVEMENT_ENDPOINT);url.searchParams.set('view','history');url.searchParams.set('channel',qrHistoryState.channel);url.searchParams.set('db',qrHistoryState.db);if(qrHistoryState.db==='qa')url.searchParams.set('parentOrigin',location.origin);return url.toString();};
 const movementOriginalSelect=selectProduct;selectProduct=function(product){const result=movementOriginalSelect(product);movementUpdateUnit(product);movementFormChanged();return result;};
+const movementOriginalApplyProducts=applySharedProducts;applySharedProducts=function(items,data){const result=movementOriginalApplyProducts(items,data);movementUpdateUnit(selectedProduct);movementFormChanged();return result;};
 const movementOriginalScan=processScan;
 processScan=function(text){const ok=movementOriginalScan(text);movementState.scan=ok?parseQR(text):null;if(ok){const box=document.getElementById('scanResult'),actions=document.createElement('div');actions.className='actions';for(const [mode,title] of [['ingreso','Registrar ingreso'],['salida','Salida a sede'],['traslado','Traslado entre sedes'],['etiqueta','Solo etiqueta']]){const button=document.createElement('button');button.type='button';button.className='btn btn-blue';button.textContent=title;button.onclick=()=>useScannedMovement(mode);actions.appendChild(button);}box.appendChild(actions);}return ok;};
 function useScannedMovement(mode){const q=movementState.scan;if(!q)return;const p=products.find(p=>q.COD&&norm(p.code)===norm(q.COD))||products.find(p=>q.ID&&norm(p.id)===norm(q.ID));if(!p){notice('Actualiza PRODUCTOS para reconocer el producto.');return;}selectProduct(p);document.getElementById('lotField').value=q.LOTE||'';document.getElementById('expiryField').value=/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'';document.getElementById('movementMode').value=mode;document.getElementById('movementAmount').value='';movementState.lastSignature='';changeMovementMode();openPage('labels');renderDesignEditor();updatePreview();document.getElementById(mode==='etiqueta'?'qtyField':'movementAmount').focus();notice('QR cargado. Completa la cantidad y los datos del movimiento.');}
