@@ -552,7 +552,7 @@ textarea{min-height:170px;resize:vertical}
 .shared-panel{margin:0 0 16px;padding:15px 16px;border:1px solid #cddfee;border-radius:12px;background:#f4f9fe;color:var(--navy)}.shared-panel[hidden]{display:none}.shared-panel p{margin:8px 0;line-height:1.45;font-size:13px;overflow-wrap:anywhere}.shared-panel .sync-error{color:#a42028}.shared-panel .actions{flex-wrap:wrap}.shared-panel .btn{white-space:normal}.shared-panel button[hidden]{display:none}
 
 </style><style id="labelStyles"></style>
-<style>.movement-panel{border:1px solid #bed3e8;border-radius:12px;background:#f5f9fe;padding:16px;margin:16px 0}.movement-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.movement-panel [hidden]{display:none!important}.movement-panel input,.movement-panel select{width:100%}.movement-panel .history-wrap{max-height:300px;overflow:auto}.movement-panel .status{overflow-wrap:anywhere}@media(max-width:600px){.movement-grid{grid-template-columns:1fr}}</style></head>
+<style>.movement-panel{border:1px solid #bed3e8;border-radius:12px;background:#f5f9fe;padding:16px;margin:16px 0}.movement-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.movement-panel [hidden]{display:none!important}.movement-panel input,.movement-panel select{width:100%}.movement-panel .history-wrap{max-height:300px;overflow:auto}.movement-panel .status{overflow-wrap:anywhere}@media(max-width:600px){.movement-grid{grid-template-columns:1fr}}</style><style>.movement-panel .status[data-state="error"]{color:#b42318}.movement-panel .status[data-state="pending"]{color:#8b5700}.movement-panel #movementReceiptLink{display:inline-block;margin:8px 0}.movement-grid small{display:block;margin-top:5px}.movement-panel input[readonly]{background:#e9f0f6}</style></head>
 <body>
 <div class="app">
   <aside class="sidebar">
@@ -638,9 +638,11 @@ textarea{min-height:170px;resize:vertical}
   <label for="movementMode">¿Qué deseas registrar?</label>
   <select id="movementMode"><option value="etiqueta">Solo etiqueta</option><option value="ingreso">Ingreso al Almacén Principal</option><option value="salida">Salida del Principal a una sede</option><option value="traslado">Traslado entre sedes</option></select>
   <p id="movementExplanation" class="device-note"></p>
+  <p id="movementQueueStatus" class="device-note" role="status" aria-live="polite"></p>
   <div id="movementFields" hidden>
     <div class="movement-grid">
       <div><label for="movementAmount">Cantidad del movimiento (unidades del producto)</label><input id="movementAmount" type="number" min="0.000001" step="any" inputmode="decimal" placeholder="Ejemplo: 5"></div>
+      <div><label for="movementUnit">Unidad de medida (U.M.)</label><input id="movementUnit" maxlength="100" placeholder="Ejemplo: UND"><small id="movementUnitHint" class="device-note"></small></div>
       <div><label for="movementOrigin">Almacén origen</label><select id="movementOrigin"></select></div>
       <div><label for="movementDestination">Almacén destino</label><select id="movementDestination"></select></div>
       <div><label for="movementResponsible">Responsable</label><input id="movementResponsible" maxlength="200"></div>
@@ -659,7 +661,8 @@ textarea{min-height:170px;resize:vertical}
     <button class="btn btn-soft" type="button" onclick="showMovementStock()">Consultar stock por lote</button><div id="movementStock" class="history-wrap"></div>
   </div>
   <p id="movementStatus" class="status" role="status" aria-live="polite"></p>
-  <div class="actions"><button id="retryMovementButton" class="btn btn-blue" type="button" onclick="retryMovement()" hidden>Reintentar registro pendiente</button><button class="btn btn-soft" type="button" onclick="newMovement()">Nuevo movimiento</button></div>
+  <a id="movementReceiptLink" class="btn btn-soft" target="_blank" rel="noopener" hidden>Ver movimiento registrado en Sheets</a>
+  <div class="actions"><button id="retryMovementButton" class="btn btn-blue" type="button" onclick="retryMovement()" hidden>Sincronizar pendientes</button><button class="btn btn-soft" type="button" onclick="newMovement()">Nuevo movimiento</button></div>
 </section>
 
 <details class="config-panel editor" id="labelEditor">
@@ -1657,126 +1660,134 @@ fitTickets=function(root){
   return good;
 };
 
-const MOVEMENT_ENDPOINT='https://script.google.com/macros/s/AKfycbwI9V7Ahh3y_fFndJex9BXaszM3mWdNIm4GQwmaFQyhJlmOehzunaiirWsCzHWQnOF9/exec';
-const movementState={busy:false,pending:null,lastSignature:'',lastResult:null,scan:null};
-const movementWarehouses=[['Almacen Principal','Almacén Principal'],['Almacen Sjm','San Juan de Miraflores'],['Almacen VES','Villa El Salvador'],['Almacen Surco','Surco']];
-const movementInputs=['movementAmount','movementOrigin','movementDestination','movementResponsible','movementLocation','movementDestinationLocation','movementCondition','movementTemperature','movementProvider','movementPurchase','movementManufacturer','movementBrand','movementPack','movementDocument'];
+(function(){
+  const previousReceive=historyReceive;
+  historySend=function(method,data={}){
+    return new Promise((resolve,reject)=>{
+      const s=qrHistoryState;if(!s.ready||!s.peer){reject(Error('Conecta con Google usando identicallogistica@gmail.com.'));return;}
+      const requestId=crypto.randomUUID(),peer=s.peer,origin=s.peerOrigin,delay=method==='movement'?180000:method==='append'?120000:60000;
+      const timer=setTimeout(()=>{s.pending.delete(requestId);reject(Error('Google sigue procesando la solicitud. Se comprobará automáticamente su confirmación.'));},delay);
+      s.pending.set(requestId,{resolve,reject,timer,peer,origin});
+      try{peer.postMessage({identicalHistory:1,channel:s.channel,requestId,method,...data},origin);}catch(e){clearTimeout(timer);s.pending.delete(requestId);reject(e);}
+    });
+  };
+  historyReceive=function(event){
+    const s=qrHistoryState,data=event.data;
+    if(!data||data.identicalHistory!==1||data.channel!==s.channel||!/^https:\/\/(?:[a-z0-9-]+-)?script\.googleusercontent\.com$/.test(event.origin))return;
+    if(data.type==='ready'){
+      if(data.db!==s.db)return;
+      const first=!s.ready;s.peer=event.source;s.peerOrigin=event.origin;s.ready=true;s.blocked='';s.lastHello=Date.now();
+      if(first){historyLoadPage(false).catch(e=>historyStatus(e.message));historyFlush();}
+      window.dispatchEvent(new Event('identical-google-ready'));return;
+    }
+    if(data.type==='locked'){s.blocked='Conecta con la cuenta identicallogistica@gmail.com.';historyStatus(s.blocked);return;}
+    if(data.type!=='response')return;
+    const request=s.pending.get(data.requestId);
+    if(!request||event.source!==(request.peer||s.peer)||event.origin!==(request.origin||s.peerOrigin))return;
+    clearTimeout(request.timer);s.pending.delete(data.requestId);
+    if(data.error)request.reject(Error(data.error));else if(!data.result||data.result.ok!==true)request.reject(Error('Google no confirmó la solicitud.'));else request.resolve(data.result);
+  };
+  window.removeEventListener('message',previousReceive);
+  window.addEventListener('message',historyReceive);
+  const previousRefresh=historyRefreshRows;
+  historyRefreshRows=async function(){await previousRefresh();window.dispatchEvent(new Event('identical-queue-updated'));};
+  window.historyResumeConnection=function(){
+    const s=qrHistoryState;if(document.hidden||s.pending.size||Date.now()-(s.lastResume||0)<15000)return;
+    if(s.ready&&Date.now()-(s.lastHello||0)<45000)return;
+    const frame=document.querySelector('iframe[title="Conexión privada del historial QR"]');if(!frame)return;
+    s.lastResume=Date.now();s.ready=false;s.peer=null;frame.src=historyBridgeUrl();
+    historyStatus('Restableciendo la conexión con Google. Los registros se conservan.');
+  };
+  window.addEventListener('focus',()=>window.historyResumeConnection());
+  setInterval(()=>window.historyResumeConnection(),20000);
+})();
 
-function movementStatus(message){document.getElementById('movementStatus').textContent=message;}
+const MOVEMENT_ENDPOINT='https://script.google.com/macros/s/AKfycbwI9V7Ahh3y_fFndJex9BXaszM3mWdNIm4GQwmaFQyhJlmOehzunaiirWsCzHWQnOF9/exec';
+const movementState={busy:false,queuing:false,pending:null,queue:[],lastSignature:'',lastResult:null,scan:null,timer:null};
+const movementWarehouses=[['Almacen Principal','Almacén Principal'],['Almacen Sjm','San Juan de Miraflores'],['Almacen VES','Villa El Salvador'],['Almacen Surco','Surco']];
+const movementInputs=['movementAmount','movementUnit','movementOrigin','movementDestination','movementResponsible','movementLocation','movementDestinationLocation','movementCondition','movementTemperature','movementProvider','movementPurchase','movementManufacturer','movementBrand','movementPack','movementDocument'];
+const movementSignatureFields=['mode','code','amount','origin','destination','responsible','location','destinationLocation','lot','exp','condition','temperature','provider','purchase','manufacturer','brand','pack','document'];
+
+function movementStatus(message,kind='info'){const el=document.getElementById('movementStatus');el.textContent=message;el.dataset.state=kind;}
 function movementMode(){return document.getElementById('movementMode').value;}
 function movementWarehouseOptions(id,items,blank=false){const select=document.getElementById(id),old=select.value;select.replaceChildren();if(blank){const option=document.createElement('option');option.value='';option.textContent='Sin almacén interno de origen';select.appendChild(option);}for(const [value,label] of items){const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);}if(Array.from(select.options).some(o=>o.value===old))select.value=old;}
+function movementUpdateUnit(product){const field=document.getElementById('movementUnit');if(!field)return;field.value=product&&product.um||'';field.readOnly=Boolean(field.value);document.getElementById('movementUnitHint').textContent=field.readOnly?'Unidad de PRODUCTOS.':'PRODUCTOS no indica U.M. Complétala para registrar el movimiento.';}
 function changeMovementMode(){
   const mode=movementMode(),inventory=mode!=='etiqueta';
-  if(!movementState.pending&&!movementState.busy)movementStatus('');
-  document.getElementById('movementFields').hidden=!inventory;
-  document.querySelectorAll('[data-ingreso]').forEach(el=>el.hidden=mode!=='ingreso');
-  document.getElementById('movementDestinationLocationCell').hidden=mode==='ingreso';
-  document.getElementById('movementLocationLabel').textContent=mode==='ingreso'?'Ubicación de ingreso':'Ubicación de origen';
-  movementWarehouseOptions('movementOrigin',mode==='traslado'?movementWarehouses.slice(1):mode==='salida'?movementWarehouses.slice(0,1):movementWarehouses,mode==='ingreso');
-  movementWarehouseOptions('movementDestination',mode==='ingreso'?movementWarehouses.slice(0,1):movementWarehouses.slice(1));
+  document.getElementById('movementFields').hidden=!inventory;document.querySelectorAll('[data-ingreso]').forEach(el=>el.hidden=mode!=='ingreso');document.getElementById('movementDestinationLocationCell').hidden=mode==='ingreso';document.getElementById('movementLocationLabel').textContent=mode==='ingreso'?'Ubicación de ingreso':'Ubicación de origen';
+  movementWarehouseOptions('movementOrigin',mode==='traslado'?movementWarehouses.slice(1):mode==='salida'?movementWarehouses.slice(0,1):movementWarehouses,mode==='ingreso');movementWarehouseOptions('movementDestination',mode==='ingreso'?movementWarehouses.slice(0,1):movementWarehouses.slice(1));
   if(mode==='traslado'&&document.getElementById('movementOrigin').value===document.getElementById('movementDestination').value)document.getElementById('movementDestination').value=movementWarehouses.slice(1).find(([v])=>v!==document.getElementById('movementOrigin').value)[0];
-  document.getElementById('movementOrigin').disabled=mode==='salida';document.getElementById('movementDestination').disabled=mode==='ingreso';
-  if(mode==='ingreso')document.getElementById('movementOrigin').value='';
-  document.getElementById('movementExplanation').textContent=mode==='etiqueta'?'Solo etiqueta: registra el QR en HISTORIAL_QR e imprime. No genera movimientos.':mode==='ingreso'?'Ingreso al Almacén Principal. Se registra en INGRESOS y actualiza el Kardex.':'Se registra una fila en SALIDA con motivo TRASLADO. El Kardex descuenta el origen y suma al destino con el mismo ID.';
-  document.getElementById('registerMovementButton').textContent=mode==='etiqueta'?'Registrar solo QR':mode==='ingreso'?'Registrar ingreso':mode==='salida'?'Registrar salida a sede':'Registrar traslado';
-  movementFormChanged();
+  document.getElementById('movementOrigin').disabled=mode==='salida';document.getElementById('movementDestination').disabled=mode==='ingreso';if(mode==='ingreso')document.getElementById('movementOrigin').value='';
+  document.getElementById('movementExplanation').textContent=mode==='etiqueta'?'Solo etiqueta: guarda el QR en HISTORIAL_QR. No genera movimientos.':mode==='ingreso'?'Guarda el ingreso en INGRESOS y KARDEX.':'Guarda una fila en SALIDA y actualiza KARDEX: resta del origen y suma al destino.';
+  document.getElementById('registerMovementButton').textContent=mode==='etiqueta'?'Registrar solo QR':mode==='ingreso'?'Registrar ingreso':mode==='salida'?'Registrar salida a sede':'Registrar traslado';movementFormChanged();
 }
-
-function movementFormChanged(){
-  const button=document.getElementById('registerMovementButton');
-  button.disabled=movementState.busy||!!movementState.pending;
-  if(!movementState.busy&&!movementState.pending&&movementState.lastSignature){try{button.disabled=movementSignature()===movementState.lastSignature;}catch(e){}}
-}
-
+function movementSignatureOf(data){return JSON.stringify(movementSignatureFields.map(k=>data[k]==null?'':data[k]));}
+function movementFormChanged(){const button=document.getElementById('registerMovementButton');button.disabled=movementState.queuing;if(movementMode()==='etiqueta')return;try{const signature=movementSignature();button.disabled=button.disabled||signature===movementState.lastSignature||movementState.queue.some(r=>movementSignatureOf(r.value)===signature);}catch(e){}}
 function movementData(){
-  const value=id=>document.getElementById(id).value.trim();
-  if(!selectedProduct)throw Error('Selecciona un producto.');
-  const amount=Number(value('movementAmount'));
-  if(!Number.isFinite(amount)||amount<=0)throw Error('Escribe la cantidad del movimiento, mayor que cero.');
-  return {mode:movementMode(),code:selectedProduct.code,amount,origin:value('movementOrigin'),destination:value('movementDestination'),responsible:value('movementResponsible'),location:value('movementLocation'),destinationLocation:value('movementDestinationLocation'),lot:value('lotField'),exp:value('expiryField'),condition:value('movementCondition'),temperature:value('movementTemperature'),provider:value('movementProvider'),purchase:value('movementPurchase'),manufacturer:value('movementManufacturer'),brand:value('movementBrand'),pack:value('movementPack'),document:value('movementDocument')};
+  const value=id=>document.getElementById(id).value.trim();if(!selectedProduct)throw Error('Selecciona un producto.');
+  const amount=Number(value('movementAmount'));if(!Number.isFinite(amount)||amount<=0)throw Error('Escribe la cantidad del movimiento, mayor que cero.');
+  const unit=value('movementUnit')||selectedProduct.um||'';if(!unit)throw Error('Completa Unidad de medida (U.M.), por ejemplo UND.');
+  return {mode:movementMode(),code:selectedProduct.code,unit,amount,origin:value('movementOrigin'),destination:value('movementDestination'),responsible:value('movementResponsible'),location:value('movementLocation'),destinationLocation:value('movementDestinationLocation'),lot:value('lotField'),exp:value('expiryField'),condition:value('movementCondition'),temperature:value('movementTemperature'),provider:value('movementProvider'),purchase:value('movementPurchase'),manufacturer:value('movementManufacturer'),brand:value('movementBrand'),pack:value('movementPack'),document:value('movementDocument')};
 }
-function movementSignature(){return JSON.stringify(movementData());}
-
+function movementSignature(){return movementSignatureOf(movementData());}
 async function movementPersist(m){await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put({key:'movement:'+m.operationId,type:'movement',value:m}));}
 async function movementClear(id){await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').delete('movement:'+id));}
-async function movementPending(){let rows=[];await historyTransaction(['meta'],'readonly',tx=>{const req=tx.objectStore('meta').getAll();req.onsuccess=()=>rows=req.result.filter(x=>x.type==='movement');});return rows;}
-
+async function movementPending(){let rows=[];await historyTransaction(['meta'],'readonly',tx=>{const req=tx.objectStore('meta').getAll();req.onsuccess=()=>rows=req.result.filter(x=>x.type==='movement').sort((a,b)=>String(a.value.history&&a.value.history.createdAt||'').localeCompare(String(b.value.history&&b.value.history.createdAt||'')));});return rows;}
+function movementQueueSummary(){const n=movementState.queue.length,h=qrHistoryState.pendingCount||0;document.getElementById('movementQueueStatus').textContent=(qrHistoryState.ready?'Google conectado':'Conecta con Google para enviar')+' · '+n+' movimiento'+(n===1?'':'s')+' por confirmar · '+h+' QR pendientes'+(n||h?'. Se sincronizan automáticamente.':'. Todo guardado.');document.getElementById('retryMovementButton').hidden=!(n||h);movementFormChanged();}
+async function movementRefreshQueue(){movementState.queue=await movementPending();movementState.pending=movementState.queue.length?{movement:movementState.queue[0].value}:null;movementQueueSummary();return movementState.queue;}
+function movementShowReceipt(result){const link=document.getElementById('movementReceiptLink');if(!result.sourceUrl)return;try{const url=new URL(result.sourceUrl);if(url.protocol!=='https:'||url.hostname!=='docs.google.com')return;link.href=url.toString();link.textContent='Ver '+result.source+' · fila '+result.sourceRow+' en Sheets';link.hidden=false;}catch(e){}}
+async function movementApplyResult(result,m){
+  if(result.db!==qrHistoryState.db||result.operationId!==m.operationId||result.historyId!==m.history.syncId)throw Error('La confirmación no corresponde al movimiento. Se conserva para comprobarlo.');
+  if(result.rejected){await historyTransaction(['meta'],'readwrite',tx=>{const store=tx.objectStore('meta');store.put({key:'rejected:'+m.operationId,type:'rejected',movement:m,result});store.delete('movement:'+m.operationId);});movementStatus(result.message,'error');return false;}
+  if(result.kardex==='pending'){movementStatus(result.warning||'El movimiento está en Sheets. Se está comprobando KARDEX.','pending');return false;}
+  if(!['synced','source_modified'].includes(result.kardex))throw Error('Google aún no confirmó KARDEX.');
+  const signature=movementSignatureOf(m);await historyTransaction(['meta'],'readwrite',tx=>{const store=tx.objectStore('meta');store.put({key:'movement:last',type:'receipt',value:{result,movement:m,signature}});store.delete('movement:'+m.operationId);});
+  movementState.lastSignature=signature;movementState.lastResult=result;const message=result.warning||'Confirmado: '+result.amount+' '+(m.unit||m.history.um||'unidades')+' en '+result.source+' (fila '+result.sourceRow+') y KARDEX.';movementStatus(message,result.warning?'info':'success');movementShowReceipt(result);notice(message);return true;
+}
+async function movementSyncPending(){
+  if(movementState.busy||!qrHistoryState.storage||!qrHistoryState.ready)return false;movementState.busy=true;let confirmed=false;
+  try{
+    const queued=(await movementRefreshQueue()).slice(0,50);if(!queued.length)return true;
+    movementStatus('Comprobando '+queued.length+' movimiento'+(queued.length===1?'':'s')+' pendiente'+(queued.length===1?'':'s')+' con Google…','pending');
+    const status=await historySend('operations',{operations:queued.map(r=>r.value.operationId)});if(status.db!==qrHistoryState.db||!Array.isArray(status.operations))throw Error('No se pudo comprobar la confirmación.');const known=new Map(status.operations.map(r=>[r.operationId,r]));
+    for(const row of queued){const m=row.value,existing=known.get(m.operationId);
+      if(existing&&existing.found&&existing.result.kardex!=='pending'){confirmed=await movementApplyResult(existing.result,m)||confirmed;await movementRefreshQueue();continue;}
+      if(existing&&existing.found&&Date.now()-Date.parse(existing.result.savedAt)<180000){movementStatus('Guardado en '+existing.result.source+'. Google está actualizando KARDEX; la confirmación llegará automáticamente.','pending');continue;}
+      movementStatus('Guardando en '+(m.mode==='ingreso'?'INGRESOS':'SALIDA')+' y actualizando KARDEX…','pending');const result=await historySend('movement',{movement:m});confirmed=await movementApplyResult(result,m)||confirmed;await movementRefreshQueue();
+    }
+    if(confirmed)await historyLoadPage(false).catch(e=>historyStatus(e.message));return confirmed;
+  }catch(e){movementStatus('Se comprobará automáticamente: '+e.message+' El movimiento conserva su ID para evitar duplicados.','pending');return false;}
+  finally{movementState.busy=false;await movementRefreshQueue().catch(()=>{});clearTimeout(movementState.timer);if(movementState.queue.length)movementState.timer=setTimeout(()=>movementSyncPending(),15000);}
+}
 async function registerMovement(){
-  if(movementState.busy)return false;
-  if(movementMode()==='etiqueta')return saveLabelHistoryOnly();
-  try{
-    if(!qrHistoryState.ready){connectQrHistory();movementStatus('Conectando con Google. Vuelve a pulsar Registrar cuando la conexión esté lista.');return false;}
-    await qrHistoryReady;
-    if(movementState.pending)return retryMovement();
-    const data=movementData(),signature=JSON.stringify(data);
-    if(signature===movementState.lastSignature){movementStatus('Este movimiento ya está registrado. Pulsa Nuevo movimiento para registrar otro.');return false;}
-    quantity(true);
-    if(!modeConf().configured)throw Error(modeConf().problem);
-    if(!document.getElementById('expiryField').validity.valid)throw Error('Revisa el vencimiento.');
-    const snapshot=historyJobSnapshot();
-    data.operationId=crypto.randomUUID();data.history=HistoryCore.record(snapshot,'qr-'+crypto.randomUUID(),qrHistoryState.deviceId,'pagina','MOVIMIENTO_'+data.mode.toUpperCase());
-    data.history.source='pagina';data.history.action='MOVIMIENTO_'+data.mode.toUpperCase();
-    await movementPersist(data);movementState.pending={movement:data,signature};
-    return await retryMovement();
-  }catch(e){movementStatus(e.message);notice(e.message);return false;}
+  if(movementState.queuing)return false;if(movementMode()==='etiqueta')return saveLabelHistoryOnly();
+  try{const data=movementData(),signature=movementSignatureOf(data);if(signature===movementState.lastSignature){movementStatus('Este movimiento ya está confirmado. Pulsa Nuevo movimiento para registrar otro.');return false;}if(movementState.queue.some(r=>movementSignatureOf(r.value)===signature))return retryMovement();
+    if(!document.getElementById('expiryField').validity.valid)throw Error('Revisa el vencimiento.');quantity(true);if(!modeConf().configured)throw Error(modeConf().problem);if(!qrHistoryState.ready)connectQrHistory();movementState.queuing=true;movementFormChanged();
+    await qrHistoryReady;if(!qrHistoryState.storage)throw Error('El navegador no permite conservar el registro. Usa Chrome o Safari en modo normal.');
+    const snapshot=historyJobSnapshot();snapshot.um=data.unit;data.operationId=crypto.randomUUID();data.history=HistoryCore.record(snapshot,'qr-'+crypto.randomUUID(),qrHistoryState.deviceId,'pagina','MOVIMIENTO_'+data.mode.toUpperCase());data.history.source='pagina';data.history.action='MOVIMIENTO_'+data.mode.toUpperCase();
+    await movementPersist(data);await movementRefreshQueue();document.getElementById('movementReceiptLink').hidden=true;movementStatus(qrHistoryState.ready?'Enviando el movimiento a Google…':'El movimiento se conserva en este equipo y se enviará al conectar con Google.','pending');movementSyncPending();return true;
+  }catch(e){movementStatus(e.message,'error');notice(e.message);return false;}finally{movementState.queuing=false;movementFormChanged();}
 }
-
-async function retryMovement(){
-  const pending=movementState.pending;if(!pending||movementState.busy)return false;
-  if(!qrHistoryState.ready){connectQrHistory();movementStatus('Conecta con Google y pulsa Reintentar registro.');return false;}
-  movementState.busy=true;movementFormChanged();document.getElementById('retryMovementButton').hidden=true;
-  movementStatus('Registrando en Sheets y sincronizando el Kardex…');
-  try{
-    const result=await historySend('movement',{movement:pending.movement});
-    if(result.operationId!==pending.movement.operationId||result.historyId!==pending.movement.history.syncId)throw Error('La confirmación no corresponde a este movimiento. Se conserva para comprobarlo.');
-    if(result.rejected){await movementClear(pending.movement.operationId);movementState.pending=null;movementStatus(result.message+' Puedes corregir los datos y registrar de nuevo.');return false;}
-    if(result.kardex==='pending'){movementStatus(result.warning+' Pulsa Reintentar para completar la sincronización; no se duplicará el movimiento.');return false;}
-    await movementClear(pending.movement.operationId);
-    movementState.lastSignature=pending.signature;movementState.lastResult=result;movementState.pending=null;
-    const message=result.warning||'Registrado en '+result.source+' · '+result.movementId+' · Kardex actualizado. '+(result.mode==='ingreso'?'Ingreso: '+result.amount:result.amount+' del origen al destino.');
-    movementStatus(message);notice(message);
-    await historyLoadPage(false).catch(e=>historyStatus(e.message));return true;
-  }catch(e){movementStatus('Registro sin confirmar: '+e.message+' Se conserva el mismo ID para reintentar sin duplicarlo.');return false;}
-  finally{movementState.busy=false;movementFormChanged();document.getElementById('retryMovementButton').hidden=!movementState.pending;}
-}
-
-async function newMovement(){
-  if(movementState.pending){movementStatus('Primero reintenta el registro pendiente para conocer su resultado.');return;}
-  movementState.lastSignature='';movementState.lastResult=null;document.getElementById('movementAmount').value='';movementStatus('Listo para un nuevo movimiento.');movementFormChanged();
-}
-
+async function retryMovement(){if(!qrHistoryState.ready)connectQrHistory();await qrHistoryReady;await movementRefreshQueue();historyFlush();return movementSyncPending();}
+async function newMovement(){movementState.lastSignature='';movementState.lastResult=null;document.getElementById('movementAmount').value='';document.getElementById('movementReceiptLink').hidden=true;movementStatus('Listo para un nuevo movimiento. Los anteriores se confirman automáticamente.');movementFormChanged();}
 async function showMovementStock(){
   try{if(!selectedProduct)throw Error('Selecciona un producto.');if(!qrHistoryState.ready){connectQrHistory();return;}
-    const result=await historySend('stock',{code:selectedProduct.code}),root=document.getElementById('movementStock');root.replaceChildren();
-    const title=document.createElement('p');title.textContent='Stock por lote y ubicación · '+selectedProduct.code;root.appendChild(title);
+    const result=await historySend('stock',{code:selectedProduct.code}),root=document.getElementById('movementStock');root.replaceChildren();const title=document.createElement('p');title.textContent='Stock por lote y ubicación · '+selectedProduct.code;root.appendChild(title);
     const table=document.createElement('table');table.className='history-table';const head=document.createElement('thead');const tr=document.createElement('tr');for(const text of ['Almacén','Ubicación','Lote','Vence','Disponible']){const th=document.createElement('th');th.textContent=text;tr.appendChild(th);}head.appendChild(tr);table.appendChild(head);
-    const body=document.createElement('tbody');for(const p of result.lots){const tr=document.createElement('tr');for(const value of [p.warehouse,p.location,p.lot,p.exp,p.balance]){const td=document.createElement('td');td.textContent=String(value||'—');tr.appendChild(td);}body.appendChild(tr);}table.appendChild(body);root.appendChild(table);
+    const body=document.createElement('tbody');for(const p of result.lots){const tr=document.createElement('tr');for(const value of [p.warehouse,p.location,p.lot,p.exp,p.balance]){const td=document.createElement('td');td.textContent=value==null||value===''?'—':String(value);tr.appendChild(td);}body.appendChild(tr);}table.appendChild(body);root.appendChild(table);
     if(!result.lots.length){const p=document.createElement('p');p.textContent='Sin stock positivo identificado por lote.';root.appendChild(p);}if(result.pending){const p=document.createElement('p');p.textContent='Hay '+result.pending+' movimientos anteriores con datos de lote u origen pendientes de revisión.';root.appendChild(p);}
-  }catch(e){movementStatus(e.message);}
+  }catch(e){movementStatus(e.message,'error');}
 }
-
-const saveLabelHistoryOnly=saveHistory;
-saveHistory=registerMovement;
+const saveLabelHistoryOnly=saveHistory;saveHistory=registerMovement;
 historyBridgeUrl=function(){const url=new URL(MOVEMENT_ENDPOINT);url.searchParams.set('view','history');url.searchParams.set('channel',qrHistoryState.channel);url.searchParams.set('db',qrHistoryState.db);if(qrHistoryState.db==='qa')url.searchParams.set('parentOrigin',location.origin);return url.toString();};
-
+const movementOriginalSelect=selectProduct;selectProduct=function(product){const result=movementOriginalSelect(product);movementUpdateUnit(product);movementFormChanged();return result;};
 const movementOriginalScan=processScan;
 processScan=function(text){const ok=movementOriginalScan(text);movementState.scan=ok?parseQR(text):null;if(ok){const box=document.getElementById('scanResult'),actions=document.createElement('div');actions.className='actions';for(const [mode,title] of [['ingreso','Registrar ingreso'],['salida','Salida a sede'],['traslado','Traslado entre sedes'],['etiqueta','Solo etiqueta']]){const button=document.createElement('button');button.type='button';button.className='btn btn-blue';button.textContent=title;button.onclick=()=>useScannedMovement(mode);actions.appendChild(button);}box.appendChild(actions);}return ok;};
-
-function useScannedMovement(mode){
-  if(movementState.pending){notice('Completa primero el registro pendiente.');return;}
-  const q=movementState.scan;if(!q)return;
-  const p=products.find(p=>q.COD&&norm(p.code)===norm(q.COD))||products.find(p=>q.ID&&norm(p.id)===norm(q.ID));
-  if(!p){notice('Actualiza PRODUCTOS para reconocer este producto antes de registrar.');return;}
-  selectProduct(p);document.getElementById('lotField').value=q.LOTE||'';
-  document.getElementById('expiryField').value=/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'';
-  document.getElementById('movementMode').value=mode;document.getElementById('movementAmount').value='';movementState.lastSignature='';changeMovementMode();openPage('labels');renderDesignEditor();updatePreview();document.getElementById(mode==='etiqueta'?'qtyField':'movementAmount').focus();notice('QR cargado. Completa la cantidad y los datos del movimiento.');
-}
-
+function useScannedMovement(mode){const q=movementState.scan;if(!q)return;const p=products.find(p=>q.COD&&norm(p.code)===norm(q.COD))||products.find(p=>q.ID&&norm(p.id)===norm(q.ID));if(!p){notice('Actualiza PRODUCTOS para reconocer el producto.');return;}selectProduct(p);document.getElementById('lotField').value=q.LOTE||'';document.getElementById('expiryField').value=/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'';document.getElementById('movementMode').value=mode;document.getElementById('movementAmount').value='';movementState.lastSignature='';changeMovementMode();openPage('labels');renderDesignEditor();updatePreview();document.getElementById(mode==='etiqueta'?'qtyField':'movementAmount').focus();notice('QR cargado. Completa la cantidad y los datos del movimiento.');}
 function initializeMovements(){
-  movementInputs.concat(['lotField','expiryField','qtyField']).forEach(id=>document.getElementById(id).addEventListener('input',movementFormChanged));
-  document.getElementById('movementMode').addEventListener('change',changeMovementMode);
-  changeMovementMode();
-  qrHistoryReady.then(async()=>{if(!qrHistoryState.storage)return;const pending=await movementPending();if(pending.length){movementState.pending={movement:pending[0].value,signature:JSON.stringify(Object.fromEntries(Object.entries(pending[0].value).filter(([k])=>!['operationId','history'].includes(k))))};movementStatus('Hay un registro pendiente de confirmar. Reinténtalo antes de crear otro movimiento.');document.getElementById('retryMovementButton').hidden=false;movementFormChanged();}});
+  movementInputs.concat(['lotField','expiryField','qtyField']).forEach(id=>document.getElementById(id).addEventListener('input',movementFormChanged));document.getElementById('movementMode').addEventListener('change',changeMovementMode);movementUpdateUnit(selectedProduct);changeMovementMode();document.querySelectorAll('button[onclick="connectQrHistory()"]:not(#retryMovementButton)').forEach(b=>b.textContent='Conectar con Google');
+  window.addEventListener('identical-google-ready',()=>{movementQueueSummary();movementSyncPending();});window.addEventListener('identical-queue-updated',movementQueueSummary);window.addEventListener('online',()=>{historyFlush();movementSyncPending();});window.addEventListener('focus',()=>movementSyncPending());
+  qrHistoryReady.then(async()=>{if(!qrHistoryState.storage)return;await movementRefreshQueue();const last=await historyRead('meta','movement:last');if(last){movementState.lastSignature=last.value.signature;movementState.lastResult=last.value.result;movementShowReceipt(last.value.result);movementStatus(last.value.result.warning||'Último movimiento confirmado en '+last.value.result.source+' (fila '+last.value.result.sourceRow+') y KARDEX.','success');}movementSyncPending();});setInterval(()=>{if(!document.hidden){movementQueueSummary();movementSyncPending();}},15000);
 }
 initializeMovements();
 
