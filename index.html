@@ -552,7 +552,29 @@ textarea{min-height:170px;resize:vertical}
 .shared-panel{margin:0 0 16px;padding:15px 16px;border:1px solid #cddfee;border-radius:12px;background:#f4f9fe;color:var(--navy)}.shared-panel[hidden]{display:none}.shared-panel p{margin:8px 0;line-height:1.45;font-size:13px;overflow-wrap:anywhere}.shared-panel .sync-error{color:#a42028}.shared-panel .actions{flex-wrap:wrap}.shared-panel .btn{white-space:normal}.shared-panel button[hidden]{display:none}
 
 </style><style id="labelStyles"></style>
-<style>.movement-panel{border:1px solid #bed3e8;border-radius:12px;background:#f5f9fe;padding:16px;margin:16px 0}.movement-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.movement-panel [hidden]{display:none!important}.movement-panel input,.movement-panel select{width:100%}.movement-panel .history-wrap{max-height:300px;overflow:auto}.movement-panel .status{overflow-wrap:anywhere}@media(max-width:600px){.movement-grid{grid-template-columns:1fr}}</style><style>.movement-panel .status[data-state="error"]{color:#b42318}.movement-panel .status[data-state="pending"]{color:#8b5700}.movement-panel #movementReceiptLink{display:inline-block;margin:8px 0}.movement-grid small{display:block;margin-top:5px}.movement-panel input[readonly]{background:#e9f0f6}</style></head>
+<style>.movement-panel{border:1px solid #bed3e8;border-radius:12px;background:#f5f9fe;padding:16px;margin:16px 0}.movement-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.movement-panel [hidden]{display:none!important}.movement-panel input,.movement-panel select{width:100%}.movement-panel .history-wrap{max-height:300px;overflow:auto}.movement-panel .status{overflow-wrap:anywhere}@media(max-width:600px){.movement-grid{grid-template-columns:1fr}}</style><style>.movement-panel .status[data-state="error"]{color:#b42318}.movement-panel .status[data-state="pending"]{color:#8b5700}.movement-panel #movementReceiptLink{display:inline-block;margin:8px 0}.movement-grid small{display:block;margin-top:5px}.movement-panel input[readonly]{background:#e9f0f6}</style><style>.movement-feedback{width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);padding:0;border:0;border-radius:24px;box-shadow:0 24px 90px #082f6355;color:#12305b;background:#fff;overflow:auto;overscroll-behavior:contain}
+.movement-feedback::backdrop{background:#071c3cc2;backdrop-filter:blur(4px)}
+.movement-feedback-card{padding:30px 26px;text-align:center}
+.movement-feedback-mark{display:grid;place-items:center;width:76px;height:76px;margin:0 auto 14px;border-radius:50%;background:#dcfce7;color:#15803d;font-size:48px;font-weight:900}
+.movement-feedback[data-phase="pending"] .movement-feedback-mark{background:#fff1cc;color:#8b5700}
+.movement-feedback[data-phase="error"] .movement-feedback-mark,.movement-feedback[data-phase="removed"] .movement-feedback-mark{background:#fff1e8;color:#a64814}
+.movement-feedback h2{font-size:clamp(28px,6.5vw,36px);line-height:1.15;letter-spacing:-.5px;margin:0 0 16px;font-weight:900;outline:none}
+.movement-feedback[data-phase="completed"] h2{color:#15803d}
+.movement-feedback h3{font-size:28px;margin:24px 0 16px}
+.movement-feedback-summary{font-size:19px;font-weight:750;line-height:1.5;overflow-wrap:anywhere;margin:0 0 12px}
+.movement-feedback-detail{font-size:15px;line-height:1.5;color:#52657a;margin:8px 0;overflow-wrap:anywhere}
+.movement-feedback a{display:inline-block;margin:8px 0;color:#145fa9;font-weight:700}
+.movement-feedback [hidden]{display:none!important}
+.movement-feedback-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:12px;margin-top:18px}
+.movement-feedback-actions .btn{min-width:125px;min-height:54px;font-size:19px;justify-content:center}
+.movement-feedback label{display:block;font-size:22px;font-weight:750;margin:22px 0 12px;line-height:1.35}
+.movement-feedback input{width:150px;padding:14px;text-align:center;font:800 28px Arial;border:2px solid #a9c9e6;border-radius:12px;color:#12305b}
+.movement-feedback .device-note{font-size:14px;line-height:1.5;margin-top:12px}
+.movement-ticket-error{color:#b42318;font-weight:700;font-size:16px;line-height:1.5}
+.movement-feedback-close{margin-top:16px;min-height:48px;justify-content:center}
+body.movement-feedback-open{overflow:hidden}
+@media(max-width:600px){.movement-feedback{width:calc(100vw - 20px);max-height:calc(100dvh - 20px);border-radius:20px}.movement-feedback-card{padding:26px 18px}.movement-feedback-actions .btn{flex:1;min-width:120px}.movement-feedback-summary{font-size:18px}}
+</style></head>
 <body>
 <div class="app">
   <aside class="sidebar">
@@ -662,6 +684,7 @@ textarea{min-height:170px;resize:vertical}
   </div>
   <p id="movementStatus" class="status" role="status" aria-live="polite"></p>
   <a id="movementReceiptLink" class="btn btn-soft" target="_blank" rel="noopener" hidden>Ver movimiento registrado en Sheets</a>
+  <button id="movementResultButton" class="btn btn-soft" type="button" onclick="movementReopenResult()" hidden>Ver confirmación / imprimir ticket</button>
   <div class="actions"><button id="retryMovementButton" class="btn btn-blue" type="button" onclick="retryMovement()" hidden>Sincronizar pendientes</button><button class="btn btn-soft" type="button" onclick="newMovement()">Nuevo movimiento</button></div>
 </section>
 
@@ -1621,6 +1644,27 @@ const qrHistoryReady=(async()=>{
 })();
 
 </script>
+<dialog id="movementFeedback" class="movement-feedback" aria-labelledby="movementFeedbackTitle" aria-describedby="movementFeedbackSummary">
+  <div class="movement-feedback-card">
+    <div id="movementFeedbackMark" class="movement-feedback-mark" aria-hidden="true">✓</div>
+    <h2 id="movementFeedbackTitle" tabindex="-1">Registrando movimiento…</h2>
+    <p id="movementFeedbackSummary" class="movement-feedback-summary" role="status" aria-live="polite"></p>
+    <p id="movementFeedbackDetail" class="movement-feedback-detail"></p>
+    <a id="movementFeedbackReceipt" target="_blank" rel="noopener" hidden>Ver registro en Sheets</a>
+    <div id="movementFeedbackQuestion" hidden>
+      <h3>¿Imprimir ticket?</h3>
+      <div class="movement-feedback-actions"><button id="movementTicketYes" class="btn btn-blue" type="button" onclick="movementTicketYes()">Sí</button><button id="movementTicketNo" class="btn btn-soft" type="button" onclick="movementTicketNo()">No</button></div>
+    </div>
+    <div id="movementFeedbackQuantity" hidden>
+      <label for="movementTicketQuantity">¿Cuántas etiquetas quieres imprimir?</label>
+      <input id="movementTicketQuantity" type="number" min="1" max="1000" step="1" inputmode="numeric" value="1">
+      <p class="device-note">La cantidad de etiquetas no cambia el movimiento registrado.</p>
+      <div class="movement-feedback-actions"><button id="movementTicketPrint" class="btn btn-blue" type="button" onclick="movementTicketPrint()">Imprimir</button><button id="movementTicketPdf" class="btn btn-soft" type="button" onclick="movementTicketPdf()">PDF para celular</button><button class="btn btn-soft" type="button" onclick="movementTicketBack()">Volver</button></div>
+    </div>
+    <p id="movementTicketError" class="movement-ticket-error" role="alert"></p>
+    <button id="movementFeedbackClose" class="btn btn-soft movement-feedback-close" type="button" onclick="movementFeedbackClose()">Seguir trabajando</button>
+  </div>
+</dialog>
 <script>
 const MOVEMENT_LABEL_CSS='.label-sheet .design-enabled .custom-zone:empty{display:none}.label-sheet .design-enabled .ticket-inner{grid-template-rows:max-content max-content max-content max-content minmax(var(--reserved-qr),1fr) max-content}.label-sheet .design-enabled .tcode,.label-sheet .design-enabled .tdesc{min-height:0;max-width:100%;margin-top:0}.label-sheet .design-enabled .custom-field{min-height:0}';
 const movementPrintDocument=printDocument;
@@ -1702,13 +1746,91 @@ fitTickets=function(root){
   setInterval(()=>window.historyResumeConnection(),20000);
 })();
 
+const movementTicketState={active:null,queue:[],offered:new Set(),printing:false};
+const movementOriginalValidateLabelJob=validateLabelJob;
+validateLabelJob=function(){if(quantity(true)>1000)throw Error('Imprime hasta 1000 etiquetas por vez.');return movementOriginalValidateLabelJob();};
+function movementPrintSettings(){return {paperMode,printMode,tempMode,nativeProfiles:JSON.parse(JSON.stringify(nativeProfiles))};}
+function movementHistorySnapshot(data){
+  const conf=modeConf();
+  return {date:new Date().toLocaleString('es-PE',{timeZone:'America/Lima'}),createdAt:new Date().toISOString(),code:selectedProduct.code,desc:selectedProduct.desc,id:selectedProduct.id||'',um:data.unit,type:selectedProduct.type||'',lot:data.lot,exp:data.exp,format:currentFormatName(),mode:paperMode,width:conf.width||'',height:conf.height||'',qty:1,payload:qrPayload(),...(updateDesign.enabled?{design:UpdateCore.validateDesign(updateDesign)}:{})};
+}
+function movementFeedbackRender(phase,message){
+  const active=movementTicketState.active;if(!active)return;
+  const dialog=document.getElementById('movementFeedback'),m=active.m,result=active.result;
+  active.phase=phase;dialog.dataset.phase=phase;
+  const titles={pending:'Registrando movimiento…',question:'Movimiento registrado',quantity:'Movimiento registrado',completed:'REGISTRO COMPLETADO',error:'No se pudo registrar',removed:'Registro modificado o retirado'};
+  document.getElementById('movementFeedbackTitle').textContent=titles[phase];document.getElementById('movementFeedbackMark').textContent=phase==='pending'?'…':['error','removed'].includes(phase)?'!':'✓';
+  document.getElementById('movementFeedbackSummary').textContent=message||(phase==='pending'?'Espera la confirmación de Google.':phase==='removed'?result.warning:m.amount+' '+(m.unit||m.history.um||'unidades')+' · '+m.history.desc);
+  document.getElementById('movementFeedbackDetail').textContent=phase==='pending'?'Tu solicitud se conserva. Puedes seguir trabajando mientras se confirma.':phase==='error'?'Revisa los datos del formulario y vuelve a intentarlo.':phase==='removed'?'Se respetó el cambio de la hoja. El movimiento no se volvió a crear.':(result.mode==='ingreso'?'Ingreso a '+result.destination:result.origin+' → '+result.destination)+' · '+result.source+', fila '+result.sourceRow+' · KARDEX confirmado.';
+  document.getElementById('movementFeedbackQuestion').hidden=phase!=='question';document.getElementById('movementFeedbackQuantity').hidden=phase!=='quantity';document.getElementById('movementTicketError').textContent='';
+  const link=document.getElementById('movementFeedbackReceipt');link.hidden=true;
+  if(result&&phase!=='removed'&&result.sourceUrl){try{const url=new URL(result.sourceUrl);if(url.protocol==='https:'&&url.hostname==='docs.google.com'){link.href=url.toString();link.hidden=false;}}catch(e){}}
+  const close=document.getElementById('movementFeedbackClose');close.hidden=['question','quantity'].includes(phase);close.textContent=phase==='pending'?'Seguir trabajando':phase==='error'?'Volver al formulario':'Cerrar';
+  if(!dialog.open){if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','');document.body.classList.add('movement-feedback-open');}
+  document.getElementById(phase==='question'?'movementTicketYes':phase==='quantity'?'movementTicketQuantity':'movementFeedbackTitle').focus();
+}
+function movementFeedbackPending(m){movementTicketState.active={m,result:null,phase:'pending'};movementFeedbackRender('pending');}
+function movementFeedbackProgress(message){const active=movementTicketState.active;if(active&&active.phase==='pending'&&document.getElementById('movementFeedback').open)document.getElementById('movementFeedbackSummary').textContent=message;}
+function movementFeedbackRejected(m,message){const item={m,result:null,phase:'error',message},active=movementTicketState.active;if(active&&active.m.operationId!==m.operationId&&document.getElementById('movementFeedback').open){movementTicketState.queue.push(item);return;}movementTicketState.active=item;movementFeedbackRender('error',message);}
+async function movementOfferTicket(result,m,force=false){
+  if(!force&&(movementTicketState.offered.has(m.operationId)||await historyRead('meta','ticket:'+m.operationId)))return;
+  movementTicketState.offered.add(m.operationId);
+  const item={m,result,phase:result.kardex==='source_modified'?'removed':'question'},active=movementTicketState.active;
+  if(active&&active.m.operationId!==m.operationId&&document.getElementById('movementFeedback').open){movementTicketState.queue.push(item);return;}
+  movementTicketState.active=item;document.getElementById('movementTicketQuantity').value='1';movementFeedbackRender(item.phase);
+}
+async function movementSaveTicketDecision(choice,qty){const active=movementTicketState.active;if(!active||!active.result)return;await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put({key:'ticket:'+active.m.operationId,type:'ticket',value:{choice,qty:qty||0,decidedAt:new Date().toISOString()}}));}
+function movementTicketYes(){if(movementTicketState.printing||!movementTicketState.active||movementTicketState.active.phase!=='question')return;movementFeedbackRender('quantity');document.getElementById('movementTicketQuantity').select();}
+function movementTicketBack(){if(!movementTicketState.printing)movementFeedbackRender('question');}
+async function movementTicketNo(){if(movementTicketState.printing||!movementTicketState.active||!movementTicketState.active.result)return;movementFeedbackRender('completed');try{await movementSaveTicketDecision('no');}catch(e){document.getElementById('movementTicketError').textContent='El movimiento está guardado; no se pudo recordar tu elección en este navegador.';}}
+function movementFeedbackClose(){
+  if(movementTicketState.printing)return;
+  const dialog=document.getElementById('movementFeedback');if(dialog.open){if(typeof dialog.close==='function')dialog.close();else dialog.removeAttribute('open');}document.body.classList.remove('movement-feedback-open');movementTicketState.active=null;
+  const next=movementTicketState.queue.shift();if(next){movementTicketState.active=next;document.getElementById('movementTicketQuantity').value='1';movementFeedbackRender(next.phase,next.message);}
+}
+function movementTicketCount(){const raw=document.getElementById('movementTicketQuantity').value,qty=Number(raw);if(!Number.isSafeInteger(qty)||qty<1||qty>1000)throw Error('Escribe una cantidad entera de 1 a 1000 etiquetas.');return qty;}
+function movementBuildTicket(m,qty){
+  const ids=['lotField','expiryField','qtyField'],saved={selectedProduct,paperMode,printMode,tempMode,nativeProfiles,updateDesign,values:ids.map(id=>document.getElementById(id).value)};
+  try{
+    const h=m.history,settings=m.printSettings||{};selectedProduct={code:h.code,desc:h.desc,id:h.id||'',um:m.unit||h.um||'',type:h.type||''};document.getElementById('lotField').value=h.lot||'';document.getElementById('expiryField').value=h.exp||'';document.getElementById('qtyField').value=String(qty);
+    paperMode=settings.paperMode||'temporary';printMode=settings.printMode||'temporary';tempMode=settings.tempMode||'one';if(settings.nativeProfiles)nativeProfiles=settings.nativeProfiles;updateDesign=h.design?UpdateCore.validateDesign(h.design):UpdateCore.defaultDesign();
+    const job=validateLabelJob(),entry=historyJobSnapshot();if(entry.payload!==h.payload)throw Error('El contenido de la etiqueta no coincide con el QR registrado.');return {job,entry,html:printDocument(job)};
+  }finally{selectedProduct=saved.selectedProduct;paperMode=saved.paperMode;printMode=saved.printMode;tempMode=saved.tempMode;nativeProfiles=saved.nativeProfiles;updateDesign=saved.updateDesign;ids.forEach((id,i)=>document.getElementById(id).value=saved.values[i]);}
+}
+function movementTicketBusy(value){movementTicketState.printing=value;for(const id of ['movementTicketPrint','movementTicketPdf','movementTicketQuantity'])document.getElementById(id).disabled=value;}
+async function movementTicketPrint(){
+  const active=movementTicketState.active;if(!active||active.phase!=='quantity'||movementTicketState.printing)return false;
+  let win,locked=false;
+  try{
+    const qty=movementTicketCount(),prepared=movementBuildTicket(active.m,qty);win=window.open('','_blank');if(!win)throw Error('Permite la ventana de impresión o usa PDF para celular.');movementTicketBusy(true);updatePrintBusy++;locked=true;
+    win.document.open();win.document.write(prepared.html);win.document.close();
+    const invoke=()=>{if(!fitTickets(win.document))throw Error('Los textos no caben completos. Ajusta el diseño o elige una etiqueta mayor.');win.focus();win.print();};
+    win.document.getElementById('invokePrint').onclick=()=>{try{invoke();}catch(e){notice(e.message);}};
+    await waitImages(win.document);if(!fitTickets(win.document))throw Error('Los textos no caben completos. Ajusta el diseño o elige una etiqueta mayor.');prepared.entry.historyAction='SOLICITUD_IMPRESION';if(!await storeJobHistory(prepared.entry))throw Error('No se pudo conservar la solicitud de impresión.');await movementSaveTicketDecision('print',qty);
+    movementFeedbackRender('completed','Se abrió la impresión de '+qty+' etiqueta'+(qty===1?'':'s')+'. El movimiento quedó registrado.');try{invoke();}catch(e){document.getElementById('movementTicketError').textContent='Pulsa Imprimir etiquetas en la ventana que se abrió.';}return true;
+  }catch(e){document.getElementById('movementTicketError').textContent='El movimiento ya está guardado. '+e.message;return false;}finally{movementTicketBusy(false);if(locked)releasePrint();}
+}
+async function movementTicketPdf(){
+  const active=movementTicketState.active;if(!active||active.phase!=='quantity'||movementTicketState.printing)return false;
+  let frame,locked=false;
+  try{
+    const qty=movementTicketCount(),prepared=movementBuildTicket(active.m,qty);if(typeof html2canvas==='undefined'||!window.jspdf)throw Error('No se pudo cargar la exportación PDF.');movementTicketBusy(true);updatePrintBusy++;locked=true;
+    frame=document.createElement('iframe');frame.style.cssText='position:absolute;left:-12000px;top:0;width:1000px;height:2000px;border:0';frame.setAttribute('aria-hidden','true');document.body.appendChild(frame);const doc=frame.contentDocument;doc.open();doc.write(prepared.html);doc.close();doc.querySelector('.print-toolbar').remove();await waitImages(doc);if(!fitTickets(doc))throw Error('Los textos no caben completos. Ajusta el diseño o elige una etiqueta mayor.');
+    const {job,entry}=prepared,orientation=job.conf.width>job.conf.height?'landscape':'portrait',{jsPDF}=window.jspdf,pdf=new jsPDF({orientation,unit:'mm',format:[job.conf.width,job.conf.height],compress:true}),sheets=Array.from(doc.querySelectorAll('.label-sheet'));
+    for(let i=0;i<sheets.length;i++){if(i)pdf.addPage([job.conf.width,job.conf.height],orientation);const canvas=await html2canvas(sheets[i],{scale:203/96,backgroundColor:'#fff',logging:false});pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,job.conf.width,job.conf.height,undefined,'FAST');}
+    entry.historyAction='PDF_GENERADO';if(!await storeJobHistory(entry))throw Error('No se pudo conservar la solicitud de PDF.');downloadBlob(pdf.output('blob'),'Etiquetas_'+entry.code.replace(/[^a-z0-9_-]/gi,'_')+'.pdf');await movementSaveTicketDecision('pdf',qty);movementFeedbackRender('completed','PDF generado con '+qty+' etiqueta'+(qty===1?'':'s')+'. El movimiento quedó registrado.');return true;
+  }catch(e){document.getElementById('movementTicketError').textContent='El movimiento ya está guardado. '+e.message;return false;}finally{if(frame)frame.remove();movementTicketBusy(false);if(locked)releasePrint();}
+}
+async function movementReopenResult(){let last=await historyRead('meta','movement:last');if(!last)return;movementFeedbackPending(last.value.movement);movementFeedbackProgress('Comprobando la confirmación del movimiento…');if(qrHistoryState.ready)await movementRefreshLast(true);last=await historyRead('meta','movement:last');if(last)movementOfferTicket(last.value.result,last.value.movement,true);}
+document.getElementById('movementFeedback').addEventListener('cancel',event=>{event.preventDefault();movementFeedbackClose();});
+
 const MOVEMENT_ENDPOINT='https://script.google.com/macros/s/AKfycbwI9V7Ahh3y_fFndJex9BXaszM3mWdNIm4GQwmaFQyhJlmOehzunaiirWsCzHWQnOF9/exec';
-const movementState={busy:false,queuing:false,pending:null,queue:[],lastSignature:'',lastResult:null,scan:null,timer:null};
+const movementState={busy:false,queuing:false,pending:null,queue:[],lastSignature:'',lastResult:null,scan:null,timer:null,lastCheckedAt:0,checkingLast:false};
 const movementWarehouses=[['Almacen Principal','Almacén Principal'],['Almacen Sjm','San Juan de Miraflores'],['Almacen VES','Villa El Salvador'],['Almacen Surco','Surco']];
 const movementInputs=['movementAmount','movementUnit','movementOrigin','movementDestination','movementResponsible','movementLocation','movementDestinationLocation','movementCondition','movementTemperature','movementProvider','movementPurchase','movementManufacturer','movementBrand','movementPack','movementDocument'];
-const movementSignatureFields=['mode','code','amount','origin','destination','responsible','location','destinationLocation','lot','exp','condition','temperature','provider','purchase','manufacturer','brand','pack','document'];
+const movementSignatureFields=['mode','code','unit','amount','origin','destination','responsible','location','destinationLocation','lot','exp','condition','temperature','provider','purchase','manufacturer','brand','pack','document'];
 
-function movementStatus(message,kind='info'){const el=document.getElementById('movementStatus');el.textContent=message;el.dataset.state=kind;}
+function movementStatus(message,kind='info'){const el=document.getElementById('movementStatus');el.textContent=message;el.dataset.state=kind;if(kind==='pending')movementFeedbackProgress(message);}
 function movementMode(){return document.getElementById('movementMode').value;}
 function movementWarehouseOptions(id,items,blank=false){const select=document.getElementById(id),old=select.value;select.replaceChildren();if(blank){const option=document.createElement('option');option.value='';option.textContent='Sin almacén interno de origen';select.appendChild(option);}for(const [value,label] of items){const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);}if(Array.from(select.options).some(o=>o.value===old))select.value=old;}
 function movementUpdateUnit(product){const field=document.getElementById('movementUnit');if(!field)return;field.value=product&&product.um||'';field.readOnly=Boolean(field.value);document.getElementById('movementUnitHint').textContent=field.readOnly?'Unidad de PRODUCTOS.':'PRODUCTOS no indica U.M. Complétala para registrar el movimiento.';}
@@ -1735,14 +1857,14 @@ async function movementClear(id){await historyTransaction(['meta'],'readwrite',t
 async function movementPending(){let rows=[];await historyTransaction(['meta'],'readonly',tx=>{const req=tx.objectStore('meta').getAll();req.onsuccess=()=>rows=req.result.filter(x=>x.type==='movement').sort((a,b)=>String(a.value.history&&a.value.history.createdAt||'').localeCompare(String(b.value.history&&b.value.history.createdAt||'')));});return rows;}
 function movementQueueSummary(){const n=movementState.queue.length,h=qrHistoryState.pendingCount||0;document.getElementById('movementQueueStatus').textContent=(qrHistoryState.ready?'Google conectado':'Conecta con Google para enviar')+' · '+n+' movimiento'+(n===1?'':'s')+' por confirmar · '+h+' QR pendientes'+(n||h?'. Se sincronizan automáticamente.':'. Todo guardado.');document.getElementById('retryMovementButton').hidden=!(n||h);movementFormChanged();}
 async function movementRefreshQueue(){movementState.queue=await movementPending();movementState.pending=movementState.queue.length?{movement:movementState.queue[0].value}:null;movementQueueSummary();return movementState.queue;}
-function movementShowReceipt(result){const link=document.getElementById('movementReceiptLink');if(!result.sourceUrl)return;try{const url=new URL(result.sourceUrl);if(url.protocol!=='https:'||url.hostname!=='docs.google.com')return;link.href=url.toString();link.textContent='Ver '+result.source+' · fila '+result.sourceRow+' en Sheets';link.hidden=false;}catch(e){}}
+function movementShowReceipt(result){const link=document.getElementById('movementReceiptLink');link.hidden=true;document.getElementById('movementResultButton').hidden=false;if(!result.sourceUrl||result.kardex==='source_modified')return;try{const url=new URL(result.sourceUrl);if(url.protocol!=='https:'||url.hostname!=='docs.google.com')return;link.href=url.toString();link.textContent='Ver '+result.source+' · fila '+result.sourceRow+' en Sheets';link.hidden=false;}catch(e){}}
 async function movementApplyResult(result,m){
   if(result.db!==qrHistoryState.db||result.operationId!==m.operationId||result.historyId!==m.history.syncId)throw Error('La confirmación no corresponde al movimiento. Se conserva para comprobarlo.');
-  if(result.rejected){await historyTransaction(['meta'],'readwrite',tx=>{const store=tx.objectStore('meta');store.put({key:'rejected:'+m.operationId,type:'rejected',movement:m,result});store.delete('movement:'+m.operationId);});movementStatus(result.message,'error');return false;}
+  if(result.rejected){await historyTransaction(['meta'],'readwrite',tx=>{const store=tx.objectStore('meta');store.put({key:'rejected:'+m.operationId,type:'rejected',movement:m,result});store.delete('movement:'+m.operationId);});movementStatus(result.message,'error');movementFeedbackRejected(m,result.message);return false;}
   if(result.kardex==='pending'){movementStatus(result.warning||'El movimiento está en Sheets. Se está comprobando KARDEX.','pending');return false;}
   if(!['synced','source_modified'].includes(result.kardex))throw Error('Google aún no confirmó KARDEX.');
-  const signature=movementSignatureOf(m);await historyTransaction(['meta'],'readwrite',tx=>{const store=tx.objectStore('meta');store.put({key:'movement:last',type:'receipt',value:{result,movement:m,signature}});store.delete('movement:'+m.operationId);});
-  movementState.lastSignature=signature;movementState.lastResult=result;const message=result.warning||'Confirmado: '+result.amount+' '+(m.unit||m.history.um||'unidades')+' en '+result.source+' (fila '+result.sourceRow+') y KARDEX.';movementStatus(message,result.warning?'info':'success');movementShowReceipt(result);notice(message);return true;
+  const signature=result.kardex==='source_modified'?'':movementSignatureOf(m);await historyTransaction(['meta'],'readwrite',tx=>{const store=tx.objectStore('meta');store.put({key:'movement:last',type:'receipt',value:{result,movement:m,signature}});store.delete('movement:'+m.operationId);});
+  movementState.lastSignature=signature;movementState.lastResult=result;movementState.lastCheckedAt=Date.now();const message=result.warning||'Confirmado: '+result.amount+' '+(m.unit||m.history.um||'unidades')+' en '+result.source+' (fila '+result.sourceRow+') y KARDEX.';movementStatus(message,result.warning?'info':'success');movementShowReceipt(result);notice(message);await movementOfferTicket(result,m);return true;
 }
 async function movementSyncPending(){
   if(movementState.busy||!qrHistoryState.storage||!qrHistoryState.ready)return false;movementState.busy=true;let confirmed=false;
@@ -1762,14 +1884,19 @@ async function movementSyncPending(){
 async function registerMovement(){
   if(movementState.queuing)return false;if(movementMode()==='etiqueta')return saveLabelHistoryOnly();
   try{const data=movementData(),signature=movementSignatureOf(data);if(signature===movementState.lastSignature){movementStatus('Este movimiento ya está confirmado. Pulsa Nuevo movimiento para registrar otro.');return false;}if(movementState.queue.some(r=>movementSignatureOf(r.value)===signature))return retryMovement();
-    if(!document.getElementById('expiryField').validity.valid)throw Error('Revisa el vencimiento.');quantity(true);if(!modeConf().configured)throw Error(modeConf().problem);if(!qrHistoryState.ready)connectQrHistory();movementState.queuing=true;movementFormChanged();
+    if(!document.getElementById('expiryField').validity.valid)throw Error('Revisa el vencimiento.');if(!qrHistoryState.ready)connectQrHistory();movementState.queuing=true;movementFormChanged();
     await qrHistoryReady;if(!qrHistoryState.storage)throw Error('El navegador no permite conservar el registro. Usa Chrome o Safari en modo normal.');
-    const snapshot=historyJobSnapshot();snapshot.um=data.unit;data.operationId=crypto.randomUUID();data.history=HistoryCore.record(snapshot,'qr-'+crypto.randomUUID(),qrHistoryState.deviceId,'pagina','MOVIMIENTO_'+data.mode.toUpperCase());data.history.source='pagina';data.history.action='MOVIMIENTO_'+data.mode.toUpperCase();
-    await movementPersist(data);await movementRefreshQueue();document.getElementById('movementReceiptLink').hidden=true;movementStatus(qrHistoryState.ready?'Enviando el movimiento a Google…':'El movimiento se conserva en este equipo y se enviará al conectar con Google.','pending');movementSyncPending();return true;
+    const snapshot=movementHistorySnapshot(data);data.printSettings=movementPrintSettings();data.operationId=crypto.randomUUID();data.history=HistoryCore.record(snapshot,'qr-'+crypto.randomUUID(),qrHistoryState.deviceId,'pagina','MOVIMIENTO_'+data.mode.toUpperCase());data.history.source='pagina';data.history.action='MOVIMIENTO_'+data.mode.toUpperCase();
+    await movementPersist(data);await movementRefreshQueue();document.getElementById('movementReceiptLink').hidden=true;movementFeedbackPending(data);movementStatus(qrHistoryState.ready?'Enviando el movimiento a Google…':'El movimiento se conserva en este equipo y se enviará al conectar con Google.','pending');movementSyncPending();return true;
   }catch(e){movementStatus(e.message,'error');notice(e.message);return false;}finally{movementState.queuing=false;movementFormChanged();}
 }
 async function retryMovement(){if(!qrHistoryState.ready)connectQrHistory();await qrHistoryReady;await movementRefreshQueue();historyFlush();return movementSyncPending();}
-async function newMovement(){movementState.lastSignature='';movementState.lastResult=null;document.getElementById('movementAmount').value='';document.getElementById('movementReceiptLink').hidden=true;movementStatus('Listo para un nuevo movimiento. Los anteriores se confirman automáticamente.');movementFormChanged();}
+async function newMovement(){movementState.lastSignature='';movementState.lastResult=null;document.getElementById('movementAmount').value='';document.getElementById('movementReceiptLink').hidden=true;document.getElementById('movementResultButton').hidden=true;if(qrHistoryState.storage){const last=await historyRead('meta','movement:last');if(last){last.value.signature='';await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put(last));}}movementStatus('Listo para un nuevo movimiento. Los anteriores se confirman automáticamente.');movementFormChanged();}
+async function movementRefreshLast(force=false){
+  if(!qrHistoryState.ready||movementState.checkingLast||movementState.busy||!movementState.lastResult||!force&&Date.now()-movementState.lastCheckedAt<180000)return;
+  movementState.checkingLast=true;movementState.lastCheckedAt=Date.now();
+  try{const last=await historyRead('meta','movement:last');if(!last)return;const reply=await historySend('operations',{operations:[last.value.movement.operationId]});if(reply.db!==qrHistoryState.db)throw Error('La respuesta corresponde a otra base.');const item=reply.operations&&reply.operations[0];if(!item||!item.found)return;const result=item.result;if(result.operationId!==last.value.movement.operationId||result.historyId!==last.value.movement.history.syncId)throw Error('La confirmación no corresponde al movimiento.');last.value.result=result;if(result.kardex==='source_modified'){last.value.signature='';movementState.lastSignature='';movementStatus(result.warning,'info');}movementState.lastResult=result;await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put(last));movementShowReceipt(result);movementFormChanged();}catch(e){}finally{movementState.checkingLast=false;}
+}
 async function showMovementStock(){
   try{if(!selectedProduct)throw Error('Selecciona un producto.');if(!qrHistoryState.ready){connectQrHistory();return;}
     const result=await historySend('stock',{code:selectedProduct.code}),root=document.getElementById('movementStock');root.replaceChildren();const title=document.createElement('p');title.textContent='Stock por lote y ubicación · '+selectedProduct.code;root.appendChild(title);
@@ -1786,8 +1913,8 @@ processScan=function(text){const ok=movementOriginalScan(text);movementState.sca
 function useScannedMovement(mode){const q=movementState.scan;if(!q)return;const p=products.find(p=>q.COD&&norm(p.code)===norm(q.COD))||products.find(p=>q.ID&&norm(p.id)===norm(q.ID));if(!p){notice('Actualiza PRODUCTOS para reconocer el producto.');return;}selectProduct(p);document.getElementById('lotField').value=q.LOTE||'';document.getElementById('expiryField').value=/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'';document.getElementById('movementMode').value=mode;document.getElementById('movementAmount').value='';movementState.lastSignature='';changeMovementMode();openPage('labels');renderDesignEditor();updatePreview();document.getElementById(mode==='etiqueta'?'qtyField':'movementAmount').focus();notice('QR cargado. Completa la cantidad y los datos del movimiento.');}
 function initializeMovements(){
   movementInputs.concat(['lotField','expiryField','qtyField']).forEach(id=>document.getElementById(id).addEventListener('input',movementFormChanged));document.getElementById('movementMode').addEventListener('change',changeMovementMode);movementUpdateUnit(selectedProduct);changeMovementMode();document.querySelectorAll('button[onclick="connectQrHistory()"]:not(#retryMovementButton)').forEach(b=>b.textContent='Conectar con Google');
-  window.addEventListener('identical-google-ready',()=>{movementQueueSummary();movementSyncPending();});window.addEventListener('identical-queue-updated',movementQueueSummary);window.addEventListener('online',()=>{historyFlush();movementSyncPending();});window.addEventListener('focus',()=>movementSyncPending());
-  qrHistoryReady.then(async()=>{if(!qrHistoryState.storage)return;await movementRefreshQueue();const last=await historyRead('meta','movement:last');if(last){movementState.lastSignature=last.value.signature;movementState.lastResult=last.value.result;movementShowReceipt(last.value.result);movementStatus(last.value.result.warning||'Último movimiento confirmado en '+last.value.result.source+' (fila '+last.value.result.sourceRow+') y KARDEX.','success');}movementSyncPending();});setInterval(()=>{if(!document.hidden){movementQueueSummary();movementSyncPending();}},15000);
+  window.addEventListener('identical-google-ready',()=>{movementQueueSummary();movementSyncPending();movementRefreshLast();});window.addEventListener('identical-queue-updated',movementQueueSummary);window.addEventListener('online',()=>{historyFlush();movementSyncPending();});window.addEventListener('focus',()=>{movementSyncPending();movementRefreshLast(true);});
+  qrHistoryReady.then(async()=>{if(!qrHistoryState.storage)return;await movementRefreshQueue();const last=await historyRead('meta','movement:last');if(last){movementState.lastSignature=last.value.signature;movementState.lastResult=last.value.result;movementShowReceipt(last.value.result);movementStatus(last.value.result.warning||'Último movimiento confirmado en '+last.value.result.source+' (fila '+last.value.result.sourceRow+') y KARDEX.',last.value.result.warning?'info':'success');}movementSyncPending();movementRefreshLast();});setInterval(()=>{if(!document.hidden){movementQueueSummary();movementSyncPending();}},15000);
 }
 initializeMovements();
 
