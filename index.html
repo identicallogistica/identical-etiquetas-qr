@@ -552,7 +552,21 @@ textarea{min-height:170px;resize:vertical}
 .shared-panel{margin:0 0 16px;padding:15px 16px;border:1px solid #cddfee;border-radius:12px;background:#f4f9fe;color:var(--navy)}.shared-panel[hidden]{display:none}.shared-panel p{margin:8px 0;line-height:1.45;font-size:13px;overflow-wrap:anywhere}.shared-panel .sync-error{color:#a42028}.shared-panel .actions{flex-wrap:wrap}.shared-panel .btn{white-space:normal}.shared-panel button[hidden]{display:none}
 
 </style><style id="labelStyles"></style>
-<style>.movement-panel{border:1px solid #bed3e8;border-radius:12px;background:#f5f9fe;padding:16px;margin:16px 0}.movement-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.movement-panel [hidden]{display:none!important}.movement-panel input,.movement-panel select{width:100%}.movement-panel .history-wrap{max-height:300px;overflow:auto}.movement-panel .status{overflow-wrap:anywhere}@media(max-width:600px){.movement-grid{grid-template-columns:1fr}}</style><style>.movement-panel .status[data-state="error"]{color:#b42318}.movement-panel .status[data-state="pending"]{color:#8b5700}.movement-panel #movementReceiptLink{display:inline-block;margin:8px 0}.movement-grid small{display:block;margin-top:5px}.movement-panel input[readonly]{background:#e9f0f6}</style><style>.movement-feedback{width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);padding:0;border:0;border-radius:24px;box-shadow:0 24px 90px #082f6355;color:#12305b;background:#fff;overflow:auto;overscroll-behavior:contain}
+<style>.location-sheet{width:76mm;height:76mm;display:grid;background:white;color:#000;overflow:hidden;flex:none;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}
+.location-ticket{box-sizing:border-box;min-width:0;min-height:0;padding:1mm 1.8mm;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:white}
+.location-ticket+.location-ticket{border-top:.3mm dashed #6e7c8b}
+.location-ticket>div{width:100%;min-width:0;flex:none}
+.location-code{font-family:Arial,Helvetica,sans-serif;font-weight:900;letter-spacing:.01em;line-height:1.04;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;color:#000}
+.location-secondary{font-family:Arial,Helvetica,sans-serif;font-weight:700;margin-top:.45mm;letter-spacing:.02em;line-height:1.05;white-space:normal;overflow-wrap:anywhere;color:#111}
+.location-sequence{margin-top:18px;padding:14px;border:1px solid #d6e4f0;border-radius:12px;background:#f6faff}
+.location-sequence h3{font-size:16px;line-height:1.4;margin:0 0 12px}
+.location-controls .device-note{font-size:13px;line-height:1.6;margin:10px 0}
+.location-status{font-weight:700;font-size:15px;line-height:1.5;overflow-wrap:anywhere;color:#166534}
+.location-status[data-state="error"]{color:#b42318}
+.location-controls .actions .btn{min-height:48px;justify-content:center}
+.location-preview .location-frame{flex:none;overflow:hidden}
+@media(max-width:600px){#locations .config-fields{grid-template-columns:1fr}#locations .actions .btn{flex:1;min-width:180px}#locationCodes{min-height:180px}.location-sequence{padding:12px}}
+</style><style>.movement-panel{border:1px solid #bed3e8;border-radius:12px;background:#f5f9fe;padding:16px;margin:16px 0}.movement-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.movement-panel [hidden]{display:none!important}.movement-panel input,.movement-panel select{width:100%}.movement-panel .history-wrap{max-height:300px;overflow:auto}.movement-panel .status{overflow-wrap:anywhere}@media(max-width:600px){.movement-grid{grid-template-columns:1fr}}</style><style>.movement-panel .status[data-state="error"]{color:#b42318}.movement-panel .status[data-state="pending"]{color:#8b5700}.movement-panel #movementReceiptLink{display:inline-block;margin:8px 0}.movement-grid small{display:block;margin-top:5px}.movement-panel input[readonly]{background:#e9f0f6}.pending-review{padding:14px;border:2px solid #d59a25;border-radius:12px;background:#fff8e8}.pending-review>div{padding:10px 0;border-top:1px solid #dfc895}.pending-review button{margin:4px;min-height:44px}</style><style>.movement-feedback{width:min(560px,calc(100vw - 24px));max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);padding:0;border:0;border-radius:24px;box-shadow:0 24px 90px #082f6355;color:#12305b;background:#fff;overflow:auto;overscroll-behavior:contain}
 .movement-feedback::backdrop{background:#071c3cc2;backdrop-filter:blur(4px)}
 .movement-feedback-card{padding:30px 26px;text-align:center}
 .movement-feedback-mark{display:grid;place-items:center;width:76px;height:76px;margin:0 auto 14px;border-radius:50%;background:#dcfce7;color:#15803d;font-size:48px;font-weight:900}
@@ -683,6 +697,7 @@ body.movement-feedback-open{overflow:hidden}
     <button class="btn btn-soft" type="button" onclick="showMovementStock()">Consultar stock por lote</button><div id="movementStock" class="history-wrap"></div>
   </div>
   <p id="movementStatus" class="status" role="status" aria-live="polite"></p>
+  <div id="movementPendingReview" class="pending-review" hidden></div>
   <a id="movementReceiptLink" class="btn btn-soft" target="_blank" rel="noopener" hidden>Ver movimiento registrado en Sheets</a>
   <button id="movementResultButton" class="btn btn-soft" type="button" onclick="movementReopenResult()" hidden>Ver confirmación / imprimir ticket</button>
   <div class="actions"><button id="retryMovementButton" class="btn btn-blue" type="button" onclick="retryMovement()" hidden>Sincronizar pendientes</button><button class="btn btn-soft" type="button" onclick="newMovement()">Nuevo movimiento</button></div>
@@ -731,27 +746,37 @@ body.movement-feedback-open{overflow:hidden}
 
             <div class="actions">
               <button class="btn btn-primary" onclick="printLabels()">🖨 Imprimir etiquetas</button>
-              <button id="registerMovementButton" class="btn btn-blue" type="button" onclick="registerMovement()">Registrar solo QR</button><button id="pdfButton" class="btn btn-soft" type="button" onclick="exportLabelPdf()">📄 PDF para celular</button><button class="btn btn-soft" type="button" onclick="connectQrHistory()">Conectar historial</button><p id="qrHistoryCompact" class="device-note" role="status" aria-live="polite">Preparando historial…</p>
+              <button id="registerMovementButton" class="btn btn-blue" type="button" onclick="registerMovement()">Registrar solo QR</button><button id="pdfButton" class="btn btn-soft" type="button" onclick="exportLabelPdf()">📄 PDF para celular</button><button class="btn btn-soft" type="button" onclick="connectQrHistory()">Reconectar inventario</button><p id="qrHistoryCompact" class="device-note" role="status" aria-live="polite">Preparando historial…</p>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="locations" class="page">
+<section id="locations" class="page">
   <div class="grid-main">
     <div class="card location-controls">
       <div class="card-title"><span class="mini">▤</span>Etiquetas de ubicación</div>
-      <label for="locationCodes">Una ubicación por línea o separada por coma</label><textarea id="locationCodes" spellcheck="false">G1.1
-G1.2
-G1.3</textarea>
-      <div class="config-fields"><div><label for="locationsPerSheet">Tickets por etiqueta física de 76 × 76 mm</label><select id="locationsPerSheet"><option value="3">3 tickets · 76 × 25,3 mm aprox.</option><option value="4">4 tickets</option><option value="5">5 tickets</option><option value="6">6 tickets</option></select></div><div><label for="locationSecondary">Texto secundario</label><select id="locationSecondary"><option value="none">Solo código</option><option value="module">Mostrar MÓDULO según la letra</option><option value="location">Mostrar UBICACIÓN</option></select></div></div>
-      <div class="config-fields"><div><label for="locationStart">Inicio de secuencia</label><input id="locationStart" value="G1.1" placeholder="G1.1"></div><div><label for="locationSequenceCount">Cantidad de ubicaciones</label><input id="locationSequenceCount" type="number" value="3" min="1" max="5000" step="1"></div></div>
-      <div class="actions"><button class="btn btn-soft" type="button" onclick="generateLocationSequence()">Generar secuencia</button><button class="btn btn-primary" type="button" onclick="printLocations()">🖨 Imprimir ubicaciones</button></div>
-      <p class="device-note">Todas las ubicaciones se distribuyen en las páginas necesarias. La última página conserva sus divisiones y deja vacíos los tickets sobrantes. Las líneas punteadas indican el corte. Estas etiquetas no llevan QR ni se añaden al historial de productos.</p>
+      <label for="locationCodes">Ubicaciones a imprimir · una por línea o separadas por coma</label>
+      <textarea id="locationCodes" spellcheck="false" placeholder="I-1.1&#10;I-1.2&#10;I-1.3" aria-describedby="locationInputHelp locationStatus"></textarea>
+      <p id="locationInputHelp" class="device-note">Se imprime el texto de esta lista, respetando sus letras, números y signos. El tamaño se ajusta al espacio disponible.</p>
+      <div class="config-fields">
+        <div><label for="locationsPerSheet">Etiquetas por hoja de 76 × 76 mm</label><select id="locationsPerSheet"><option value="1">1 · etiqueta grande completa</option><option value="2">2 · dos divisiones</option><option value="3" selected>3 · tres divisiones</option><option value="4">4 · cuatro divisiones</option><option value="5">5 · cinco divisiones</option></select></div>
+        <div><label for="locationSecondary">Texto secundario</label><select id="locationSecondary"><option value="none">Solo el texto que escribo</option><option value="module">Mostrar MÓDULO según la letra</option><option value="location">Mostrar UBICACIÓN</option></select></div>
+      </div>
+      <div class="location-sequence">
+        <h3>Generar una secuencia o repetir un texto</h3>
+        <div class="config-fields"><div><label for="locationStart">Inicio de secuencia</label><input id="locationStart" placeholder="Ejemplo: I-1.1" autocomplete="off" maxlength="500"></div><div><label for="locationSequenceCount">Cantidad de ubicaciones</label><input id="locationSequenceCount" type="number" value="3" min="1" max="5000" step="1" inputmode="numeric"></div></div>
+        <p class="device-note">Al cambiar el inicio o la cantidad, la lista y la vista previa se actualizan. El último número aumenta; si escribes solo texto, se repite.</p>
+        <button class="btn btn-soft" type="button" onclick="generateLocationSequence()">Generar secuencia</button>
+      </div>
+      <p id="locationStatus" class="status location-status" role="status" aria-live="polite"></p>
+      <div class="actions"><button id="printLocationsButton" class="btn btn-primary" type="button" onclick="printLocations()">🖨 Imprimir ubicaciones</button><button id="locationPdfButton" class="btn btn-soft" type="button" onclick="exportLocationPdf()">PDF para celular</button></div>
+      <p class="device-note">Las divisiones son horizontales y las líneas punteadas indican el corte. Si faltan ubicaciones para completar la última hoja, los espacios restantes quedan vacíos.</p>
     </div>
-    <div class="card"><div class="card-title">Vista previa de todas las páginas</div><p id="locationTotal" class="location-total" aria-live="polite"></p><div id="locationPreview" class="location-preview"></div><p id="locationStatus" class="status" style="color:var(--red)" role="status"></p></div>
+    <div class="card"><div class="card-title">Vista previa de ubicaciones</div><p id="locationTotal" class="location-total" aria-live="polite"></p><div id="locationPreview" class="location-preview"></div><p id="locationPreviewNote" class="device-note"></p></div>
   </div>
 </section>
+
 
 <section id="scan" class="page">
         <div class="card">
@@ -793,7 +818,7 @@ G1.3</textarea>
         <div class="card">
           <div class="card-title"><span class="mini">◷</span>Historial QR en Google Sheets</div>
           <p id="qrHistoryStatus" class="status" role="status" aria-live="polite">Preparando historial…</p>
-          <div class="actions"><button class="btn btn-blue" type="button" onclick="connectQrHistory()">Conectar historial</button><button class="btn btn-soft" type="button" onclick="historyLoadPage(false).catch(e=>historyStatus(e.message))">Actualizar historial</button><button id="historyOlderButton" class="btn btn-soft" type="button" onclick="historyLoadPage(true).catch(e=>historyStatus(e.message))" disabled>Ver anteriores</button></div>
+          <div class="actions"><button class="btn btn-blue" type="button" onclick="connectQrHistory()">Reconectar inventario</button><button class="btn btn-soft" type="button" onclick="historyLoadPage(false).catch(e=>historyStatus(e.message))">Actualizar historial</button><button id="historyOlderButton" class="btn btn-soft" type="button" onclick="historyLoadPage(true).catch(e=>historyStatus(e.message))" disabled>Ver anteriores</button></div>
           <p class="device-note">Aquí se registran QR y etiquetas. La cantidad de etiquetas no modifica el stock. Los movimientos se registran por separado desde Ingreso, Salida o Traslado. El historial antiguo de cada equipo se traslada al conectarlo.</p>
           <div class="history-wrap">
             <table class="history-table">
@@ -1280,52 +1305,113 @@ exportLabelPdf = async function() {
   }catch(e){notice(e.message||'No se pudo generar el PDF.');}finally{if(frame)frame.remove();button.disabled=false;button.textContent='📄 PDF para celular';if(locked)releasePrint();}
 };
 
-function locationSheetsHTML() {
-  const codes=UpdateCore.locations(document.getElementById('locationCodes').value),count=Number(document.getElementById('locationsPerSheet').value),mode=document.getElementById('locationSecondary').value;
-  const pages=UpdateCore.locationPages(codes,count),size={3:10.5,4:8.8,5:7.5,6:6.5}[count],small={3:2.6,4:2.3,5:2,6:2}[count];
-  return {codes,count,pages,html:pages.map(page=>'<div class="location-sheet" style="grid-template-rows:repeat('+count+',minmax(0,1fr))">'+Array.from({length:count},(_,i)=>{const code=page[i]||'',secondary=UpdateCore.secondary(code,mode);return '<div class="location-ticket"><div><div class="location-code" style="font-size:'+size+'mm">'+esc(code)+'</div>'+(secondary?'<div class="location-secondary" style="font-size:'+small+'mm">'+esc(secondary)+'</div>':'')+'</div></div>';}).join('')+'</div>').join('')};
+const LocationCore=(()=>{
+  const counts=[1,2,3,4,5],maxCodes=5000,maxLength=500;
+  function locations(text){
+    const codes=String(text).split(/\r\n|\r|\n|,|\t/).map(s=>s.trim()).filter(Boolean);
+    if(codes.length>maxCodes)throw Error('Usa hasta 5000 ubicaciones por lote.');
+    if(codes.some(s=>s.length>maxLength))throw Error('Una ubicación supera los 500 caracteres. Divide ese texto en varias etiquetas.');
+    if(codes.some(s=>/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(s)))throw Error('El texto contiene un carácter no imprimible.');
+    return codes;
+  }
+  function locationPages(codes,count){
+    if(!counts.includes(count))throw Error('Elige 1, 2, 3, 4 o 5 etiquetas por hoja de 76 × 76 mm.');
+    const pages=[];for(let i=0;i<codes.length;i+=count)pages.push(codes.slice(i,i+count));return pages;
+  }
+  function sequence(first,count){
+    first=String(first).trim();if(!first)throw Error('Escribe el inicio de la secuencia o escribe directamente en la lista de ubicaciones.');
+    if(/[\r\n\t,]/.test(first))throw Error('Usa una sola ubicación como inicio; para textos distintos, escribe en la lista.');
+    if(first.length>maxLength)throw Error('El inicio supera los 500 caracteres.');
+    if(!Number.isSafeInteger(count)||count<1||count>maxCodes)throw Error('La cantidad de ubicaciones debe ser un entero de 1 a 5000.');
+    const match=first.match(/(\d+)$/);if(!match)return Array(count).fill(first);
+    const prefix=first.slice(0,match.index),number=BigInt(match[1]),width=match[1].length;
+    return Array.from({length:count},(_,i)=>prefix+(number+BigInt(i)).toString().padStart(width,'0'));
+  }
+  function secondary(code,mode){if(!code)return '';if(mode==='location')return 'UBICACIÓN';if(mode==='module'){const match=String(code).match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+/u);return 'MÓDULO'+(match?' '+match[0].toUpperCase():'');}return '';}
+  return {counts,maxCodes,maxLength,locations,locationPages,sequence,secondary};
+})();
+Object.assign(UpdateCore,{locations:LocationCore.locations,locationPages:LocationCore.locationPages,sequence:LocationCore.sequence,secondary:LocationCore.secondary});
+
+const LOCATION_CSS=".location-sheet{width:76mm;height:76mm;display:grid;background:white;color:#000;overflow:hidden;flex:none;font-family:Arial,Helvetica,sans-serif;box-sizing:border-box}\n.location-ticket{box-sizing:border-box;min-width:0;min-height:0;padding:1mm 1.8mm;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;background:white}\n.location-ticket+.location-ticket{border-top:.3mm dashed #6e7c8b}\n.location-ticket>div{width:100%;min-width:0;flex:none}\n.location-code{font-family:Arial,Helvetica,sans-serif;font-weight:900;letter-spacing:.01em;line-height:1.04;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;color:#000}\n.location-secondary{font-family:Arial,Helvetica,sans-serif;font-weight:700;margin-top:.45mm;letter-spacing:.02em;line-height:1.05;white-space:normal;overflow-wrap:anywhere;color:#111}\n.location-sequence{margin-top:18px;padding:14px;border:1px solid #d6e4f0;border-radius:12px;background:#f6faff}\n.location-sequence h3{font-size:16px;line-height:1.4;margin:0 0 12px}\n.location-controls .device-note{font-size:13px;line-height:1.6;margin:10px 0}\n.location-status{font-weight:700;font-size:15px;line-height:1.5;overflow-wrap:anywhere;color:#166534}\n.location-status[data-state=\"error\"]{color:#b42318}\n.location-controls .actions .btn{min-height:48px;justify-content:center}\n.location-preview .location-frame{flex:none;overflow:hidden}\n@media(max-width:600px){#locations .config-fields{grid-template-columns:1fr}#locations .actions .btn{flex:1;min-width:180px}#locationCodes{min-height:180px}.location-sequence{padding:12px}}\n";
+const locationEditor={mode:'manual',error:'',pdfBusy:false,draftKey:'identical_locations_draft_v2',previewLimit:12};
+function locationStatus(message,kind='info'){const el=document.getElementById('locationStatus');el.textContent=message;el.dataset.state=kind;}
+function locationSaveDraft(){const value={version:1,mode:locationEditor.mode,codes:document.getElementById('locationCodes').value,start:document.getElementById('locationStart').value,quantity:document.getElementById('locationSequenceCount').value,count:document.getElementById('locationsPerSheet').value,secondary:document.getElementById('locationSecondary').value};try{localStorage.setItem(locationEditor.draftKey,JSON.stringify(value));}catch(e){}}
+function locationRestoreDraft(){
+  try{const value=JSON.parse(localStorage.getItem(locationEditor.draftKey)||'null');if(!value||value.version!==1)return;if(typeof value.codes==='string'&&value.codes.length<=2600000)document.getElementById('locationCodes').value=value.codes;if(typeof value.start==='string'&&value.start.length<=500)document.getElementById('locationStart').value=value.start;if(typeof value.quantity==='string')document.getElementById('locationSequenceCount').value=value.quantity;if(LocationCore.counts.includes(Number(value.count)))document.getElementById('locationsPerSheet').value=value.count;if(['none','module','location'].includes(value.secondary))document.getElementById('locationSecondary').value=value.secondary;locationEditor.mode=value.mode==='sequence'?'sequence':'manual';}catch(e){}
 }
-function fitLocationSheets(root) {
-  let fits=true;
-  root.querySelectorAll('.location-ticket').forEach(ticket=>{
-    if(!ticket.clientHeight){fits=false;return;}
-    const inner=ticket.firstElementChild,code=inner.querySelector('.location-code');
-    const view=ticket.ownerDocument.defaultView;
-    while((inner.scrollWidth>ticket.clientWidth-14||inner.scrollHeight>ticket.clientHeight-8)&&parseFloat(view.getComputedStyle(code).fontSize)>10){code.style.fontSize=(parseFloat(view.getComputedStyle(code).fontSize)*.95)+'px';}
-    if(inner.scrollWidth>ticket.clientWidth-10||inner.scrollHeight>ticket.clientHeight-5)fits=false;
-  });
-  return fits;
+function locationSequenceValues(){return LocationCore.sequence(document.getElementById('locationStart').value,Number(document.getElementById('locationSequenceCount').value));}
+function generateLocationSequence(){
+  locationEditor.mode='sequence';
+  try{const codes=locationSequenceValues();document.getElementById('locationCodes').value=codes.join('\n');locationEditor.error='';locationSaveDraft();updateLocationPreview();return true;}
+  catch(e){locationEditor.error=e.message;locationSaveDraft();updateLocationPreview();return false;}
 }
-function resizeLocationPreview() {
-  const root=document.getElementById('locationPreview');if(!root)return;
-  const scale=Math.min(1.12,Math.max(.2,(root.clientWidth-36)/(76*96/25.4)));
+function locationSheetsHTML(){
+  if(locationEditor.error)throw Error(locationEditor.error);
+  if(locationEditor.mode==='sequence')document.getElementById('locationCodes').value=locationSequenceValues().join('\n');
+  const codes=LocationCore.locations(document.getElementById('locationCodes').value),count=Number(document.getElementById('locationsPerSheet').value),mode=document.getElementById('locationSecondary').value,pages=LocationCore.locationPages(codes,count),size={1:24,2:17,3:11,4:8.8,5:7}[count],small={1:5,2:3.6,3:2.6,4:2.3,5:2}[count];
+  const pageHtml=page=>'<div class="location-sheet" style="grid-template-rows:repeat('+count+',minmax(0,1fr))">'+Array.from({length:count},(_,i)=>{const code=page[i]||'',secondary=LocationCore.secondary(code,mode);return '<div class="location-ticket"'+(!code?' data-empty="true"':'')+'><div><div class="location-code" style="font-size:'+size+'mm">'+esc(code)+'</div>'+(secondary?'<div class="location-secondary" style="font-size:'+small+'mm">'+esc(secondary)+'</div>':'')+'</div></div>';}).join('')+'</div>';
+  return {codes,count,pages,pageHtml,html:()=>pages.map(pageHtml).join('')};
+}
+function fitLocationSheets(root){
+  let good=true;
+  for(const ticket of root.querySelectorAll('.location-ticket')){
+    if(ticket.dataset.empty==='true')continue;if(!ticket.clientHeight||!ticket.clientWidth){good=false;continue;}
+    const inner=ticket.firstElementChild,code=inner.querySelector('.location-code'),secondary=inner.querySelector('.location-secondary'),view=ticket.ownerDocument.defaultView,style=view.getComputedStyle(ticket),height=Math.floor(ticket.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))-1,initial=parseFloat(view.getComputedStyle(code).fontSize),secondaryInitial=secondary?parseFloat(view.getComputedStyle(secondary).fontSize):0;
+    const apply=size=>{code.style.fontSize=size+'px';if(secondary)secondary.style.fontSize=Math.max(5.5,secondaryInitial*size/initial)+'px';};
+    const fits=()=>inner.scrollHeight<=height&&inner.scrollWidth<=inner.clientWidth+1&&code.scrollWidth<=code.clientWidth+1&&(!secondary||secondary.scrollWidth<=secondary.clientWidth+1);
+    if(!fits()){
+      let low=5.5,high=initial;apply(low);if(!fits()){good=false;continue;}
+      for(let i=0;i<13;i++){const middle=(low+high)/2;apply(middle);if(fits())low=middle;else high=middle;}apply(low);
+    }
+    if(!fits())good=false;
+  }
+  return good;
+}
+function resizeLocationPreview(root){
+  root=root&&root.nodeType===1?root:document.getElementById('locationPreview');if(!root)return;
+  const scale=Math.min(1.25,Math.max(.1,(root.clientWidth-32)/(76*96/25.4)));
   root.querySelectorAll('.location-frame').forEach(frame=>{frame.style.width=76*96/25.4*scale+'px';frame.style.height=76*96/25.4*scale+'px';frame.firstElementChild.style.transform='scale('+scale+')';});
 }
-function updateLocationPreview() {
-  const root=document.getElementById('locationPreview'),status=document.getElementById('locationStatus');
-  try {
-    const job=locationSheetsHTML();root.innerHTML='';
-    const temp=document.createElement('div');temp.innerHTML=job.html;
-    while(temp.firstElementChild){const frame=document.createElement('div');frame.className='location-frame';frame.appendChild(temp.firstElementChild);root.appendChild(frame);}
-    document.getElementById('locationTotal').textContent=job.codes.length+' ubicaciones · '+job.pages.length+' etiquetas físicas de 76 × 76 mm · '+job.count+' tickets por etiqueta';
-    resizeLocationPreview();
-    status.textContent=job.codes.length&&!fitLocationSheets(root)?'Algún texto no cabe. Acórtalo o usa menos divisiones antes de imprimir.':'';
-  }catch(e){root.innerHTML='';status.textContent=e.message;document.getElementById('locationTotal').textContent='';}
+function updateLocationPreview(){
+  const root=document.getElementById('locationPreview'),note=document.getElementById('locationPreviewNote'),buttons=['printLocationsButton','locationPdfButton'];
+  try{
+    const job=locationSheetsHTML();root.replaceChildren();note.textContent='';
+    for(const page of job.pages.slice(0,locationEditor.previewLimit)){const frame=document.createElement('div');frame.className='location-frame';frame.innerHTML=job.pageHtml(page);root.appendChild(frame);}
+    document.getElementById('locationTotal').textContent=job.codes.length+' '+(job.codes.length===1?'ubicación':'ubicaciones')+' · '+job.pages.length+' hoja'+(job.pages.length===1?'':'s')+' de 76 × 76 mm · '+job.count+' etiqueta'+(job.count===1?'':'s')+' por hoja';
+    resizeLocationPreview();const fits=!job.codes.length||fitLocationSheets(root);buttons.forEach(id=>document.getElementById(id).disabled=locationEditor.pdfBusy||!job.codes.length||!fits);
+    if(!job.codes.length)locationStatus('Escribe las ubicaciones que quieres imprimir.');else if(!fits)locationStatus('El texto necesita más espacio. Elige menos divisiones para conservarlo completo.','error');else locationStatus('Lista actualizada. Se imprimirá exactamente el texto de arriba.','success');
+    if(job.pages.length>locationEditor.previewLimit)note.textContent='Se muestran las primeras '+locationEditor.previewLimit+' hojas de '+job.pages.length+'. La impresión y el PDF incluyen todas las ubicaciones.';
+    return fits;
+  }catch(e){root.replaceChildren();document.getElementById('locationTotal').textContent='';note.textContent='';buttons.forEach(id=>document.getElementById(id).disabled=true);locationStatus(e.message,'error');return false;}
 }
-function generateLocationSequence() {
-  try {document.getElementById('locationCodes').value=UpdateCore.sequence(document.getElementById('locationStart').value,Number(document.getElementById('locationSequenceCount').value)).join('\n');updateLocationPreview();}catch(e){notice(e.message);}
+function locationPrintDocument(job){
+  return '<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ubicaciones Identical</title><style>*{box-sizing:border-box}html,body{margin:0;padding:0;background:white}@page{size:76mm 76mm;margin:0}.location-sheet{break-after:page;page-break-after:always;break-inside:avoid;page-break-inside:avoid}.location-sheet:last-child{break-after:auto;page-break-after:auto}'+LOCATION_CSS+'@media print{.print-toolbar{display:none!important}}.print-toolbar{padding:14px;background:#edf5fb;font:14px Arial;position:sticky;top:0;z-index:2}.print-toolbar button{min-height:44px;padding:10px 16px;font:700 16px Arial;border:0;border-radius:8px;background:#082f63;color:white}.print-error{color:#b42318;font-weight:700}</style></head><body><div class="print-toolbar"><button id="invokePrint" type="button">Imprimir ubicaciones</button><p>'+job.codes.length+' ubicaciones en '+job.pages.length+' hojas. Papel 76 × 76 mm, escala 100 %, sin márgenes ni encabezados.</p><p id="locationPrintError" class="print-error" role="status"></p></div>'+job.html()+'</body></html>';
 }
-function locationPrintDocument(job) {
-  return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Ubicaciones Identical</title><style>*{box-sizing:border-box}html,body{margin:0;padding:0;background:white}@page{size:76mm 76mm;margin:0}.location-sheet{break-after:page;page-break-after:always;break-inside:avoid;page-break-inside:avoid}.location-sheet:last-child{break-after:auto;page-break-after:auto}'+UPDATE_LABEL_CSS+'@media print{.print-toolbar{display:none}}.print-toolbar{padding:14px;background:#edf5fb;font:14px Arial}</style></head><body><div class="print-toolbar"><button id="invokePrint">Imprimir ubicaciones</button><p>'+job.codes.length+' ubicaciones en '+job.pages.length+' etiquetas físicas. Papel 76 × 76 mm, escala 100 %, sin márgenes ni encabezados.</p></div>'+job.html+'</body></html>';
-}
-function printLocations() {
-  let job;try{job=locationSheetsHTML();if(!job.codes.length)throw Error('Escribe al menos una ubicación.');}catch(e){notice(e.message);return false;}
-  const win=window.open('','_blank');if(!win){notice('Permite la ventana de impresión de ubicaciones.');return false;}
+function printLocations(){
+  let job;try{job=locationSheetsHTML();if(!job.codes.length)throw Error('Escribe al menos una ubicación.');}catch(e){locationStatus(e.message,'error');return false;}
+  const win=window.open('','_blank');if(!win){locationStatus('Permite la ventana de impresión o usa PDF para celular.','error');return false;}
   win.document.open();win.document.write(locationPrintDocument(job));win.document.close();
-  const invoke=()=>{if(!fitLocationSheets(win.document)){notice('Una ubicación no cabe completa. Acorta el texto o usa menos divisiones.');return;}win.focus();win.print();};
-  win.document.getElementById('invokePrint').onclick=invoke;waitImages(win.document).then(invoke).catch(e=>notice(e.message));return true;
+  const invoke=()=>{try{if(!fitLocationSheets(win.document))throw Error('El texto necesita más espacio. Elige menos divisiones.');win.focus();win.print();return true;}catch(e){locationStatus(e.message,'error');const error=win.document.getElementById('locationPrintError');if(error)error.textContent=e.message;return false;}};
+  win.document.getElementById('invokePrint').onclick=invoke;waitImages(win.document).then(()=>{if(invoke())locationStatus('Se abrió la impresión de '+job.codes.length+' ubicaciones.');}).catch(e=>locationStatus(e.message,'error'));return true;
 }
-openPage = function(id) {originalOpenPage(id);if(id==='locations')updateLocationPreview();};
+async function exportLocationPdf(){
+  if(locationEditor.pdfBusy)return false;let frame;
+  try{
+    const job=locationSheetsHTML();if(!job.codes.length)throw Error('Escribe al menos una ubicación.');if(typeof html2canvas==='undefined'||!window.jspdf)throw Error('No se pudo cargar la exportación PDF.');locationEditor.pdfBusy=true;updateLocationPreview();locationStatus('Generando PDF…');
+    frame=document.createElement('iframe');frame.style.cssText='position:absolute;left:-12000px;top:0;width:1000px;height:2000px;border:0';frame.setAttribute('aria-hidden','true');document.body.appendChild(frame);const doc=frame.contentDocument;doc.open();doc.write(locationPrintDocument(job));doc.close();doc.querySelector('.print-toolbar').remove();await waitImages(doc);if(!fitLocationSheets(doc))throw Error('El texto necesita más espacio. Elige menos divisiones.');
+    const {jsPDF}=window.jspdf,pdf=new jsPDF({orientation:'portrait',unit:'mm',format:[76,76],compress:true}),sheets=Array.from(doc.querySelectorAll('.location-sheet'));
+    for(let i=0;i<sheets.length;i++){if(i)pdf.addPage([76,76],'portrait');const canvas=await html2canvas(sheets[i],{scale:203/96,backgroundColor:'#fff',logging:false});pdf.addImage(canvas.toDataURL('image/png'),'PNG',0,0,76,76,undefined,'FAST');}
+    downloadBlob(pdf.output('blob'),'Ubicaciones_Identical.pdf');locationStatus('PDF generado: '+job.codes.length+' ubicaciones en '+job.pages.length+' hojas.','success');return true;
+  }catch(e){locationStatus(e.message,'error');return false;}finally{if(frame)frame.remove();locationEditor.pdfBusy=false;const status=document.getElementById('locationStatus'),message=status.textContent,kind=status.dataset.state;updateLocationPreview();locationStatus(message,kind);}
+}
+openPage=function(id){originalOpenPage(id);if(id==='locations')updateLocationPreview();if(id==='labels')updatePreview();};
+function initializeLocations(){
+  locationRestoreDraft();
+  document.getElementById('locationCodes').addEventListener('input',()=>{locationEditor.mode='manual';locationEditor.error='';locationSaveDraft();updateLocationPreview();});
+  ['locationsPerSheet','locationSecondary'].forEach(id=>document.getElementById(id).addEventListener('change',()=>{locationSaveDraft();updateLocationPreview();}));
+  ['locationStart','locationSequenceCount'].forEach(id=>{const field=document.getElementById(id);field.addEventListener('input',generateLocationSequence);field.addEventListener('change',generateLocationSequence);});
+}
+
 function initializeProductionUpdate() {
   document.getElementById('labelStyles').textContent=LABEL_CSS+UPDATE_LABEL_CSS;
   try{updateDesign=UpdateCore.validateDesign(LocalData.read(UpdateKeys.design,UpdateCore.defaultDesign()));}catch(e){notice('No se pudo leer el diseño; se conserva el dato guardado y se utiliza el predeterminado.');}
@@ -1334,7 +1420,7 @@ function initializeProductionUpdate() {
   document.getElementById('enableDesign').onchange=e=>{updateDesign.enabled=e.target.checked;updatePreview();};
   document.getElementById('designTemplateFile').addEventListener('change',importDesignTemplate);
   ['lotField','expiryField'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{document.querySelectorAll('[data-design-source="'+(id==='lotField'?'lot':'expiry')+'"]').forEach(el=>el.value=document.getElementById(id).value);}));
-  ['locationCodes','locationsPerSheet','locationSecondary'].forEach(id=>document.getElementById(id).addEventListener('input',updateLocationPreview));
+  initializeLocations();
   window.addEventListener('resize',resizeLocationPreview);
   renderDesignEditor();renderTemplateOptions();
 }
@@ -1580,7 +1666,7 @@ function historyReceive(event) {
     if(!wasReady){historyLoadPage(false).catch(e=>{s.blocked=e.message;historyStatus(e.message);});historyFlush();}
     return;
   }
-  if(data.type==='locked'){if(s.ready&&event.source!==s.peer)return;s.blocked='Inicia sesión con identicallogistica@gmail.com y pulsa Conectar historial.';historyStatus(s.blocked);return;}
+  if(data.type==='locked'){if(s.ready&&event.source!==s.peer)return;s.blocked='Inicia sesión con identicallogistica@gmail.com y pulsa Reconectar inventario.';historyStatus(s.blocked);return;}
   if(!s.ready||event.source!==s.peer||event.origin!==s.peerOrigin||data.type!=='response')return;
   const request=s.pending.get(data.requestId);if(!request)return;clearTimeout(request.timer);s.pending.delete(data.requestId);
   if(data.error)request.reject(Error(data.error));else if(!data.result||data.result.ok!==true)request.reject(Error('Google no confirmó el guardado.'));else request.resolve(data.result);
@@ -1608,7 +1694,7 @@ async function historyLoadPage(older=false) {
 function historyBridgeUrl() { const url=new URL(SHARED_BASE_CONFIG.readUrl);url.searchParams.set('view','history');url.searchParams.set('channel',qrHistoryState.channel);url.searchParams.set('db',qrHistoryState.db);if(qrHistoryState.db==='qa')url.searchParams.set('parentOrigin',location.origin);return url.toString(); }
 function connectQrHistory() {
   const s=qrHistoryState;s.popup=window.open(historyBridgeUrl(),'identical_historial_qr','width=620,height=460');
-  if(!s.popup)historyStatus('Permite abrir la conexión de Google y pulsa Conectar historial otra vez.');else historyStatus('Conectando con Google; los registros pendientes se conservan.');
+  if(!s.popup)historyStatus('Permite abrir la conexión de Google y pulsa Reconectar inventario otra vez.');else historyStatus('Conectando con Google; los registros pendientes se conservan.');
 }
 async function enqueueQrHistory(item,action='REGISTRO_QR') {
   try{
@@ -1617,7 +1703,7 @@ async function enqueueQrHistory(item,action='REGISTRO_QR') {
     const record=HistoryCore.record(item,'qr-'+crypto.randomUUID(),qrHistoryState.deviceId,'pagina',action);
     await historyTransaction(['outbox'],'readwrite',tx=>tx.objectStore('outbox').put(record));
     await historyRefreshRows();historyFlush();
-    if(!qrHistoryState.ready)notice('Registro pendiente y protegido en este equipo. Pulsa Conectar historial para enviarlo a Google.');
+    if(!qrHistoryState.ready)notice('Registro pendiente y protegido en este equipo. Pulsa Reconectar inventario para enviarlo a Google.');
     else notice('QR registrado. Enviando a HISTORIAL_QR…');
     return true;
   }catch(e){notice('No se guardó el registro: '+e.message);return false;}
@@ -1634,7 +1720,7 @@ const qrHistoryReady=(async()=>{
     if(!device)await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put({key:'device',value:qrHistoryState.deviceId}));
     await historyMigrateLegacy();await historyRefreshRows();
     window.addEventListener('message',historyReceive);
-    const frame=document.createElement('iframe');frame.title='Conexión privada del historial QR';frame.hidden=true;frame.src=historyBridgeUrl();document.body.appendChild(frame);
+    const frame=document.createElement('iframe');frame.title='Conexión del inventario';frame.hidden=true;frame.src=historyBridgeUrl();document.body.appendChild(frame);
     window.addEventListener('online',()=>historyFlush());
     window.addEventListener('storage',event=>{if(event.key===STORAGE_KEYS.history)historyMigrateLegacy().then(()=>historyFlush());});
     window.addEventListener('focus',()=>{historyMigrateLegacy().then(()=>historyFlush());if(qrHistoryState.ready)historyLoadPage(false).catch(e=>historyStatus(e.message));});
@@ -1708,7 +1794,7 @@ fitTickets=function(root){
   const previousReceive=historyReceive;
   historySend=function(method,data={}){
     return new Promise((resolve,reject)=>{
-      const s=qrHistoryState;if(!s.ready||!s.peer){reject(Error('Conecta con Google usando identicallogistica@gmail.com.'));return;}
+      const s=qrHistoryState;if(!s.ready||!s.peer){reject(Error('La conexión con el inventario aún no está lista. El registro se conserva en este equipo.'));return;}
       const requestId=crypto.randomUUID(),peer=s.peer,origin=s.peerOrigin,delay=method==='movement'?180000:method==='append'?120000:60000;
       const timer=setTimeout(()=>{s.pending.delete(requestId);reject(Error('Google sigue procesando la solicitud. Se comprobará automáticamente su confirmación.'));},delay);
       s.pending.set(requestId,{resolve,reject,timer,peer,origin});
@@ -1724,7 +1810,8 @@ fitTickets=function(root){
       if(first){historyLoadPage(false).catch(e=>historyStatus(e.message));historyFlush();}
       window.dispatchEvent(new Event('identical-google-ready'));return;
     }
-    if(data.type==='locked'){s.blocked='Conecta con la cuenta identicallogistica@gmail.com.';historyStatus(s.blocked);return;}
+    if(data.type==='locked'){s.blocked='No se pudo abrir la conexión con el inventario. Pulsa Reconectar inventario.';historyStatus(s.blocked);return;}
+    if(data.type==='unavailable'){if(s.ready&&event.source!==s.peer)return;historyStatus('El inventario aún no confirmó la conexión. Los pendientes se conservan.');return;}
     if(data.type!=='response')return;
     const request=s.pending.get(data.requestId);
     if(!request||event.source!==(request.peer||s.peer)||event.origin!==(request.origin||s.peerOrigin))return;
@@ -1738,7 +1825,7 @@ fitTickets=function(root){
   window.historyResumeConnection=function(){
     const s=qrHistoryState;if(document.hidden||s.pending.size||Date.now()-(s.lastResume||0)<15000)return;
     if(s.ready&&Date.now()-(s.lastHello||0)<45000)return;
-    const frame=document.querySelector('iframe[title="Conexión privada del historial QR"]');if(!frame)return;
+    const frame=document.querySelector('iframe[title="Conexión del inventario"]');if(!frame)return;
     s.lastResume=Date.now();s.ready=false;s.peer=null;frame.src=historyBridgeUrl();
     historyStatus('Restableciendo la conexión con Google. Los registros se conservan.');
   };
@@ -1847,16 +1934,28 @@ function movementSignatureOf(data){return JSON.stringify(movementSignatureFields
 function movementFormChanged(){const button=document.getElementById('registerMovementButton');button.disabled=movementState.queuing;if(movementMode()==='etiqueta')return;try{const signature=movementSignature();button.disabled=button.disabled||signature===movementState.lastSignature||movementState.queue.some(r=>movementSignatureOf(r.value)===signature);}catch(e){}}
 function movementData(){
   const value=id=>document.getElementById(id).value.trim();if(!selectedProduct)throw Error('Selecciona un producto.');
-  const amount=Number(value('movementAmount'));if(!Number.isFinite(amount)||amount<=0)throw Error('Escribe la cantidad del movimiento, mayor que cero.');
+  const amount=Number(value('movementAmount'));if(!Number.isFinite(amount)||amount<=0||amount>1000000000)throw Error('Escribe la cantidad del movimiento, mayor que cero y hasta 1000000000.');if(Math.abs(amount*1000000-Math.round(amount*1000000))>.0001)throw Error('La cantidad del movimiento admite hasta seis decimales.');
   const unit=value('movementUnit')||selectedProduct.um||'';if(!unit)throw Error('Completa Unidad de medida (U.M.), por ejemplo UND.');
+  if(value('lotField').length>500)throw Error('El lote admite hasta 500 caracteres.');if(value('expiryField')&&!/^\d{4}-\d{2}-\d{2}$/.test(value('expiryField')))throw Error('Revisa el vencimiento: usa una fecha con año de cuatro dígitos.');
   return {mode:movementMode(),code:selectedProduct.code,unit,amount,origin:value('movementOrigin'),destination:value('movementDestination'),responsible:value('movementResponsible'),location:value('movementLocation'),destinationLocation:value('movementDestinationLocation'),lot:value('lotField'),exp:value('expiryField'),condition:value('movementCondition'),temperature:value('movementTemperature'),provider:value('movementProvider'),purchase:value('movementPurchase'),manufacturer:value('movementManufacturer'),brand:value('movementBrand'),pack:value('movementPack'),document:value('movementDocument')};
 }
 function movementSignature(){return movementSignatureOf(movementData());}
 async function movementPersist(m){await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put({key:'movement:'+m.operationId,type:'movement',value:m}));}
 async function movementClear(id){await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').delete('movement:'+id));}
 async function movementPending(){let rows=[];await historyTransaction(['meta'],'readonly',tx=>{const req=tx.objectStore('meta').getAll();req.onsuccess=()=>rows=req.result.filter(x=>x.type==='movement').sort((a,b)=>String(a.value.history&&a.value.history.createdAt||'').localeCompare(String(b.value.history&&b.value.history.createdAt||'')));});return rows;}
-function movementQueueSummary(){const n=movementState.queue.length,h=qrHistoryState.pendingCount||0;document.getElementById('movementQueueStatus').textContent=(qrHistoryState.ready?'Google conectado':'Conecta con Google para enviar')+' · '+n+' movimiento'+(n===1?'':'s')+' por confirmar · '+h+' QR pendientes'+(n||h?'. Se sincronizan automáticamente.':'. Todo guardado.');document.getElementById('retryMovementButton').hidden=!(n||h);movementFormChanged();}
-async function movementRefreshQueue(){movementState.queue=await movementPending();movementState.pending=movementState.queue.length?{movement:movementState.queue[0].value}:null;movementQueueSummary();return movementState.queue;}
+function movementQueueSummary(){const n=movementState.queue.length,h=qrHistoryState.pendingCount||0,review=movementState.queue.filter(r=>r.value.reviewRequired).length;document.getElementById('movementQueueStatus').textContent=(qrHistoryState.ready?'Inventario conectado':'Conectando al inventario')+' · '+n+' movimiento'+(n===1?'':'s')+' por confirmar · '+h+' QR pendientes'+(review?'. '+review+' pendiente'+(review===1?' anterior necesita':'s anteriores necesitan')+' revisión.':n||h?'. Se sincronizan automáticamente.':'. Todo guardado.');document.getElementById('retryMovementButton').hidden=!(n||h);movementFormChanged();}
+async function movementRefreshQueue(){movementState.queue=await movementPending();movementState.pending=movementState.queue.length?{movement:movementState.queue[0].value}:null;movementQueueSummary();movementRenderPendingReview();return movementState.queue;}
+function movementRenderPendingReview(){
+  const root=document.getElementById('movementPendingReview');if(!root)return;root.replaceChildren();const rows=movementState.queue.filter(r=>r.value.reviewRequired);root.hidden=!rows.length;
+  if(!rows.length)return;const title=document.createElement('p');title.textContent='Pendientes anteriores sin registro confirmado. Antes de enviarlos, revisa si ya los registraste desde otro celular.';root.appendChild(title);
+  for(const row of rows){const m=row.value,card=document.createElement('div'),text=document.createElement('p');text.textContent=m.mode.toUpperCase()+' · '+m.code+' · '+m.amount+' '+(m.unit||m.history.um||'')+' · Lote: '+(m.lot||'sin lote')+' · '+(m.location||'sin ubicación');card.appendChild(text);for(const [label,send] of [['Enviar este pendiente',true],['Ya lo registré en otro celular',false]]){const button=document.createElement('button');button.type='button';button.className='btn btn-soft';button.textContent=label;button.onclick=()=>movementReviewPending(m.operationId,send);card.appendChild(button);}root.appendChild(card);}
+}
+async function movementReviewPending(id,send){
+  const row=await historyRead('meta','movement:'+id);if(!row||!row.value.reviewRequired)return false;const m=row.value;
+  if(send){m.reviewRequired=false;m.pendingReviewed=true;await movementPersist(m);movementStatus('Pendiente revisado. Se comprobará su ID antes de enviarlo.','pending');}
+  else{await historyTransaction(['meta'],'readwrite',tx=>{const store=tx.objectStore('meta');store.put({key:'cancelled:'+id,type:'cancelled',movement:m,reason:'Registrado desde otro celular',archivedAt:new Date().toISOString()});store.delete('movement:'+id);});movementStatus('Pendiente archivado en este equipo. No se envió otro movimiento.');}
+  await movementRefreshQueue();if(send)return movementSyncPending();return true;
+}
 function movementShowReceipt(result){const link=document.getElementById('movementReceiptLink');link.hidden=true;document.getElementById('movementResultButton').hidden=false;if(!result.sourceUrl||result.kardex==='source_modified')return;try{const url=new URL(result.sourceUrl);if(url.protocol!=='https:'||url.hostname!=='docs.google.com')return;link.href=url.toString();link.textContent='Ver '+result.source+' · fila '+result.sourceRow+' en Sheets';link.hidden=false;}catch(e){}}
 async function movementApplyResult(result,m){
   if(result.db!==qrHistoryState.db||result.operationId!==m.operationId||result.historyId!==m.history.syncId)throw Error('La confirmación no corresponde al movimiento. Se conserva para comprobarlo.');
@@ -1871,22 +1970,23 @@ async function movementSyncPending(){
   try{
     const queued=(await movementRefreshQueue()).slice(0,50);if(!queued.length)return true;
     movementStatus('Comprobando '+queued.length+' movimiento'+(queued.length===1?'':'s')+' pendiente'+(queued.length===1?'':'s')+' con Google…','pending');
-    const status=await historySend('operations',{operations:queued.map(r=>r.value.operationId)});if(status.db!==qrHistoryState.db||!Array.isArray(status.operations))throw Error('No se pudo comprobar la confirmación.');const known=new Map(status.operations.map(r=>[r.operationId,r]));
+    const status=await historySend('operations',{operations:queued.map(r=>r.value.operationId)});if(status.db!==qrHistoryState.db||!Array.isArray(status.operations))throw Error('No se pudo comprobar la confirmación.');const known=new Map(status.operations.map(r=>[r.operationId,r]));if(queued.some(r=>!known.has(r.value.operationId)))throw Error('La comprobación llegó incompleta. Se conserva cada pendiente.');
     for(const row of queued){const m=row.value,existing=known.get(m.operationId);
       if(existing&&existing.found&&existing.result.kardex!=='pending'){confirmed=await movementApplyResult(existing.result,m)||confirmed;await movementRefreshQueue();continue;}
       if(existing&&existing.found&&Date.now()-Date.parse(existing.result.savedAt)<180000){movementStatus('Guardado en '+existing.result.source+'. Google está actualizando KARDEX; la confirmación llegará automáticamente.','pending');continue;}
+      if(!existing.found&&m.connectionVersion!==2&&!m.pendingReviewed){m.reviewRequired=true;await movementPersist(m);movementStatus('Hay pendientes anteriores para revisar. No se reenviarán hasta que confirmes si ya los registraste desde otro celular.','info');continue;}
       movementStatus('Guardando en '+(m.mode==='ingreso'?'INGRESOS':'SALIDA')+' y actualizando KARDEX…','pending');const result=await historySend('movement',{movement:m});confirmed=await movementApplyResult(result,m)||confirmed;await movementRefreshQueue();
     }
     if(confirmed)await historyLoadPage(false).catch(e=>historyStatus(e.message));return confirmed;
   }catch(e){movementStatus('Se comprobará automáticamente: '+e.message+' El movimiento conserva su ID para evitar duplicados.','pending');return false;}
-  finally{movementState.busy=false;await movementRefreshQueue().catch(()=>{});clearTimeout(movementState.timer);if(movementState.queue.length)movementState.timer=setTimeout(()=>movementSyncPending(),15000);}
+  finally{movementState.busy=false;await movementRefreshQueue().catch(()=>{});clearTimeout(movementState.timer);if(movementState.queue.some(r=>!r.value.reviewRequired))movementState.timer=setTimeout(()=>movementSyncPending(),15000);}
 }
 async function registerMovement(){
   if(movementState.queuing)return false;if(movementMode()==='etiqueta')return saveLabelHistoryOnly();
   try{const data=movementData(),signature=movementSignatureOf(data);if(signature===movementState.lastSignature){movementStatus('Este movimiento ya está confirmado. Pulsa Nuevo movimiento para registrar otro.');return false;}if(movementState.queue.some(r=>movementSignatureOf(r.value)===signature))return retryMovement();
     if(!document.getElementById('expiryField').validity.valid)throw Error('Revisa el vencimiento.');if(!qrHistoryState.ready)connectQrHistory();movementState.queuing=true;movementFormChanged();
     await qrHistoryReady;if(!qrHistoryState.storage)throw Error('El navegador no permite conservar el registro. Usa Chrome o Safari en modo normal.');
-    const snapshot=movementHistorySnapshot(data);data.printSettings=movementPrintSettings();data.operationId=crypto.randomUUID();data.history=HistoryCore.record(snapshot,'qr-'+crypto.randomUUID(),qrHistoryState.deviceId,'pagina','MOVIMIENTO_'+data.mode.toUpperCase());data.history.source='pagina';data.history.action='MOVIMIENTO_'+data.mode.toUpperCase();
+    const snapshot=movementHistorySnapshot(data);data.connectionVersion=2;data.printSettings=movementPrintSettings();data.operationId=crypto.randomUUID();data.history=HistoryCore.record(snapshot,'qr-'+crypto.randomUUID(),qrHistoryState.deviceId,'pagina','MOVIMIENTO_'+data.mode.toUpperCase());data.history.source='pagina';data.history.action='MOVIMIENTO_'+data.mode.toUpperCase();
     await movementPersist(data);await movementRefreshQueue();document.getElementById('movementReceiptLink').hidden=true;movementFeedbackPending(data);movementStatus(qrHistoryState.ready?'Enviando el movimiento a Google…':'El movimiento se conserva en este equipo y se enviará al conectar con Google.','pending');movementSyncPending();return true;
   }catch(e){movementStatus(e.message,'error');notice(e.message);return false;}finally{movementState.queuing=false;movementFormChanged();}
 }
@@ -1895,7 +1995,7 @@ async function newMovement(){movementState.lastSignature='';movementState.lastRe
 async function movementRefreshLast(force=false){
   if(!qrHistoryState.ready||movementState.checkingLast||movementState.busy||!movementState.lastResult||!force&&Date.now()-movementState.lastCheckedAt<180000)return;
   movementState.checkingLast=true;movementState.lastCheckedAt=Date.now();
-  try{const last=await historyRead('meta','movement:last');if(!last)return;const reply=await historySend('operations',{operations:[last.value.movement.operationId]});if(reply.db!==qrHistoryState.db)throw Error('La respuesta corresponde a otra base.');const item=reply.operations&&reply.operations[0];if(!item||!item.found)return;const result=item.result;if(result.operationId!==last.value.movement.operationId||result.historyId!==last.value.movement.history.syncId)throw Error('La confirmación no corresponde al movimiento.');last.value.result=result;if(result.kardex==='source_modified'){last.value.signature='';movementState.lastSignature='';movementStatus(result.warning,'info');}movementState.lastResult=result;await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put(last));movementShowReceipt(result);movementFormChanged();}catch(e){}finally{movementState.checkingLast=false;}
+  try{const last=await historyRead('meta','movement:last');if(!last)return;const reply=await historySend('operations',{operations:[last.value.movement.operationId]});if(reply.db!==qrHistoryState.db)throw Error('La respuesta corresponde a otra base.');const item=reply.operations&&reply.operations[0];if(!item)throw Error('No se recibió la confirmación.');if(!item.found){const result={...last.value.result,kardex:'source_modified',sourceRow:0,warning:'El recibo anterior se retiró de la hoja. Se respetó el reinicio; el movimiento no se volvió a registrar.'};delete result.sourceUrl;last.value.result=result;last.value.signature='';movementState.lastSignature='';movementState.lastResult=result;await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put(last));movementStatus(result.warning,'info');movementShowReceipt(result);movementFormChanged();return;}const result=item.result;if(result.operationId!==last.value.movement.operationId||result.historyId!==last.value.movement.history.syncId)throw Error('La confirmación no corresponde al movimiento.');last.value.result=result;if(result.kardex==='source_modified'){last.value.signature='';movementState.lastSignature='';movementStatus(result.warning,'info');}movementState.lastResult=result;await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put(last));movementShowReceipt(result);movementFormChanged();}catch(e){}finally{movementState.checkingLast=false;}
 }
 async function showMovementStock(){
   try{if(!selectedProduct)throw Error('Selecciona un producto.');if(!qrHistoryState.ready){connectQrHistory();return;}
@@ -1912,7 +2012,7 @@ const movementOriginalScan=processScan;
 processScan=function(text){const ok=movementOriginalScan(text);movementState.scan=ok?parseQR(text):null;if(ok){const box=document.getElementById('scanResult'),actions=document.createElement('div');actions.className='actions';for(const [mode,title] of [['ingreso','Registrar ingreso'],['salida','Salida a sede'],['traslado','Traslado entre sedes'],['etiqueta','Solo etiqueta']]){const button=document.createElement('button');button.type='button';button.className='btn btn-blue';button.textContent=title;button.onclick=()=>useScannedMovement(mode);actions.appendChild(button);}box.appendChild(actions);}return ok;};
 function useScannedMovement(mode){const q=movementState.scan;if(!q)return;const p=products.find(p=>q.COD&&norm(p.code)===norm(q.COD))||products.find(p=>q.ID&&norm(p.id)===norm(q.ID));if(!p){notice('Actualiza PRODUCTOS para reconocer el producto.');return;}selectProduct(p);document.getElementById('lotField').value=q.LOTE||'';document.getElementById('expiryField').value=/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'';document.getElementById('movementMode').value=mode;document.getElementById('movementAmount').value='';movementState.lastSignature='';changeMovementMode();openPage('labels');renderDesignEditor();updatePreview();document.getElementById(mode==='etiqueta'?'qtyField':'movementAmount').focus();notice('QR cargado. Completa la cantidad y los datos del movimiento.');}
 function initializeMovements(){
-  movementInputs.concat(['lotField','expiryField','qtyField']).forEach(id=>document.getElementById(id).addEventListener('input',movementFormChanged));document.getElementById('movementMode').addEventListener('change',changeMovementMode);movementUpdateUnit(selectedProduct);changeMovementMode();document.querySelectorAll('button[onclick="connectQrHistory()"]:not(#retryMovementButton)').forEach(b=>b.textContent='Conectar con Google');
+  movementInputs.concat(['lotField','expiryField','qtyField']).forEach(id=>document.getElementById(id).addEventListener('input',movementFormChanged));document.getElementById('movementMode').addEventListener('change',changeMovementMode);movementUpdateUnit(selectedProduct);changeMovementMode();document.querySelectorAll('button[onclick="connectQrHistory()"]:not(#retryMovementButton)').forEach(b=>b.textContent='Reconectar inventario');
   window.addEventListener('identical-google-ready',()=>{movementQueueSummary();movementSyncPending();movementRefreshLast();});window.addEventListener('identical-queue-updated',movementQueueSummary);window.addEventListener('online',()=>{historyFlush();movementSyncPending();});window.addEventListener('focus',()=>{movementSyncPending();movementRefreshLast(true);});
   qrHistoryReady.then(async()=>{if(!qrHistoryState.storage)return;await movementRefreshQueue();const last=await historyRead('meta','movement:last');if(last){movementState.lastSignature=last.value.signature;movementState.lastResult=last.value.result;movementShowReceipt(last.value.result);movementStatus(last.value.result.warning||'Último movimiento confirmado en '+last.value.result.source+' (fila '+last.value.result.sourceRow+') y KARDEX.',last.value.result.warning?'info':'success');}movementSyncPending();movementRefreshLast();});setInterval(()=>{if(!document.hidden){movementQueueSummary();movementSyncPending();}},15000);
 }
