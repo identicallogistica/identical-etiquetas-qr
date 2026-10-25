@@ -644,6 +644,7 @@ body.movement-feedback-open{overflow:hidden}
               <label>Producto</label>
               <input id="searchInput" placeholder="Buscar por código, ID Master o descripción" autocomplete="off" aria-controls="results">
               <div id="results" class="results" role="listbox" aria-label="Resultados de productos"></div>
+              <p id="catalogReadStatus" class="device-note" role="status" aria-live="polite">Actualizando productos…</p>
             </div>
 
             <div class="product-box">
@@ -1140,7 +1141,7 @@ searchProducts = function(reset=true) {
     row.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();selectProduct(p);}else if(e.key==='ArrowDown'&&row.nextElementSibling){e.preventDefault();row.nextElementSibling.focus();}else if(e.key==='ArrowUp'){e.preventDefault();(row.previousElementSibling||document.getElementById('searchInput')).focus();}};
     box.appendChild(row);
   }
-  if (!found.length) {const empty=document.createElement('div');empty.className='result';empty.textContent='Sin coincidencias. Prueba otras palabras o actualiza productos.';box.appendChild(empty);}
+  if (!found.length) {const empty=document.createElement('div');empty.className='result';empty.textContent=sharedState.enabled&&!sharedState.connected?'PRODUCTOS aún se está actualizando. Espera la conexión para confirmar este código.':'Sin coincidencias. Prueba otras palabras o actualiza productos.';box.appendChild(empty);}
   if (found.length>shown.length) {const more=document.createElement('button');more.type='button';more.className='btn btn-soft';more.textContent='Mostrar más ('+shown.length+' de '+found.length+')';more.onclick=e=>{e.stopPropagation();updateSearchPage++;searchProducts(false);};box.appendChild(more);}
 };
 function designValues() {return {lot:document.getElementById('lotField').value.trim(),expiry:document.getElementById('expiryField').value?fmtDate(document.getElementById('expiryField').value):''};}
@@ -1449,7 +1450,7 @@ function installCatalogControls() {
       button.onclick=()=>useSharedCatalog(mode); actions.appendChild(button);
     }
   }
-  document.getElementById('baseStorageHelp').textContent = 'PRODUCTOS se consulta al abrir, al volver a la página y cada 3 minutos. Actualizar productos consulta la hoja en ese momento. La carga manual guarda un respaldo separado; no modifica PRODUCTOS. Los QR se guardan en HISTORIAL_QR; solo los registros pendientes y los ajustes de impresión permanecen en cada equipo.';
+  document.getElementById('baseStorageHelp').textContent = 'PRODUCTOS se consulta al abrir, al volver a la página y cada 30 segundos. Actualizar productos consulta la hoja en ese momento. La carga manual guarda un respaldo separado; no modifica PRODUCTOS. Los QR se guardan en HISTORIAL_QR; solo los registros pendientes y los ajustes de impresión permanecen en cada equipo.';
   document.querySelector('label[for="basePaste"]').textContent = 'Respaldo manual: pega las filas con encabezados o importa tu archivo exportado';
   document.querySelector('label[for="baseUpdateMode"]').textContent = 'Al guardar el respaldo manual';
 }
@@ -1483,6 +1484,8 @@ renderSharedState = function() {
   else if (sharedState.source === 'PRODUCTOS') message='PRODUCTOS · '+sharedState.serverCount+' productos · sincronizado'+(time?' · '+time:'')+' · actualización automática cada 30 segundos.';
   else message='Catálogo compartido conectado. La conexión automática con PRODUCTOS todavía no está activa.';
   sharedStatus(message,!sharedState.connected);
+  const hint=document.getElementById('catalogReadStatus');
+  if(hint){hint.textContent=sharedState.connected?(sharedState.source==='PRODUCTOS'?'PRODUCTOS actualizado · '+sharedState.serverCount+' productos.':'Respaldo manual seleccionado.'):(sharedState.refreshing?'Actualizando PRODUCTOS…':'Sin conexión con PRODUCTOS. Se muestra la última copia guardada y se reintentará automáticamente.');hint.classList.toggle('sync-error',!sharedState.connected&&!sharedState.refreshing);}
   document.getElementById('saveBaseButton').disabled=sharedState.refreshing || Boolean(sharedState.pending);
   for (const id of ['manualCatalogButton','automaticCatalogButton']) {
     const button=document.getElementById(id);
@@ -1490,29 +1493,59 @@ renderSharedState = function() {
   }
 };
 
-requestSharedSnapshot = function(manual=false) {
-  return new Promise((resolve,reject)=>{
-    const name='__identical_cb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-    const script=document.createElement('script'), url=new URL(SHARED_BASE_CONFIG.readUrl);
-    url.searchParams.set('callback',name);
-    if (sharedState.catalogMode==='manual') url.searchParams.set('catalog','manual');
-    if (manual) url.searchParams.set('refresh','1');
-    // En el primer arranque la caché antigua puede pertenecer al respaldo manual.
-    // Se solicita el catálogo completo hasta identificar la fuente de esa revisión.
-    if (sharedState.revision && (sharedState.catalogMode==='manual' || sharedState.source==='PRODUCTOS')) url.searchParams.set('revision',sharedState.revision);
-    if (sharedState.pending) url.searchParams.set('operation',sharedState.pending.id);
-    url.searchParams.set('_',String(Date.now()));
-    let done=false;
-    const finish=(error,data)=>{
-      if(done)return;done=true;clearTimeout(timer);script.remove();window[name]=()=>{};
-      setTimeout(()=>{delete window[name];},60000);error?reject(error):resolve(data);
+function prepareGoogleConnectionFrame(frame){frame.style.cssText='position:fixed;left:0;top:0;width:320px;height:180px;border:0;opacity:0;pointer-events:none;z-index:-1';frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;}
+
+const CatalogTransport=(function(){
+  let connection=null;
+  function close(current,error){
+    if(connection===current)connection=null;
+    clearTimeout(current.timer);window.removeEventListener('message',current.receive);current.frame.remove();
+    if(!current.ready)current.reject(error);
+    for(const pending of current.pending.values()){clearTimeout(pending.timer);pending.reject(error);}
+    current.pending.clear();
+  }
+  function connect(){
+    if(connection)return connection;
+    const current={channel:crypto.randomUUID(),frame:document.createElement('iframe'),ready:false,peer:null,origin:'',pending:new Map(),hasSnapshot:false};
+    current.promise=new Promise((resolve,reject)=>{current.resolve=resolve;current.reject=reject;});
+    current.frame.title='Conexión de productos';prepareGoogleConnectionFrame(current.frame);
+    const url=new URL(SHARED_BASE_CONFIG.readUrl);url.searchParams.set('view','catalog');url.searchParams.set('channel',current.channel);
+    if(/^https:\/\/(?:[a-z0-9-]+-)?script\.googleusercontent\.com$/.test(location.origin))url.searchParams.set('parentOrigin',location.origin);
+    current.frame.src=url.toString();
+    current.receive=function(event){
+      const data=event.data;
+      if(!data||data.identicalCatalog!==1||data.channel!==current.channel||!/^https:\/\/(?:[a-z0-9-]+-)?script\.googleusercontent\.com$/.test(event.origin))return;
+      if(data.type==='ready'){
+        if(data.version!==1||current.ready&&(event.source!==current.peer||event.origin!==current.origin))return;
+        current.ready=true;current.peer=event.source;current.origin=event.origin;clearTimeout(current.timer);current.resolve(current);return;
+      }
+      if(!current.ready||event.source!==current.peer||event.origin!==current.origin||data.type!=='response')return;
+      const pending=current.pending.get(data.requestId);if(!pending)return;
+      clearTimeout(pending.timer);current.pending.delete(data.requestId);
+      if(data.error)pending.reject(Error(data.error));else if(!data.result||data.result.ok!==true)pending.reject(Error(data.result&&data.result.message||'No se pudo leer PRODUCTOS.'));else{current.hasSnapshot=true;pending.resolve(data.result);}
     };
-    window[name]=data=>finish(null,data);
-    script.onerror=()=>finish(Error('No se pudo contactar con Google. Se reintentará automáticamente.'));
-    const timer=setTimeout(()=>finish(Error('Google tardó demasiado. Se reintentará automáticamente.')),25000);
-    script.src=url.toString();script.async=true;document.head.appendChild(script);
-  });
+    connection=current;window.addEventListener('message',current.receive);
+    current.timer=setTimeout(()=>close(current,Error('No se pudo conectar con PRODUCTOS. Se reintentará automáticamente.')),60000);
+    document.body.appendChild(current.frame);
+    return current;
+  }
+  async function snapshot(options){
+    const current=connect();await current.promise;
+    const request={...options};if(!current.hasSnapshot)request.revision='';
+    return new Promise((resolve,reject)=>{
+      const requestId=crypto.randomUUID();
+      const timer=setTimeout(()=>close(current,Error('La lectura de PRODUCTOS tardó demasiado. Se reintentará automáticamente.')),90000);
+      current.pending.set(requestId,{resolve,reject,timer});
+      try{current.peer.postMessage({identicalCatalog:1,channel:current.channel,type:'request',requestId:requestId,method:'snapshot',options:request},current.origin);}catch(error){close(current,error);}
+    });
+  }
+  return {snapshot:snapshot};
+})();
+
+requestSharedSnapshot=function(manual=false){
+  return CatalogTransport.snapshot({catalog:sharedState.catalogMode,revision:sharedState.source==='PRODUCTOS'||sharedState.catalogMode==='manual'?sharedState.revision:'',operation:sharedState.pending?sharedState.pending.id:'',refresh:manual});
 };
+
 
 const originalApplyForSource=applySharedProducts;
 applySharedProducts=function(items,data) {
@@ -1547,7 +1580,7 @@ refreshSharedBase=async function(manual=false) {
   sharedState.refreshing=true;document.getElementById('syncBaseButton').disabled=true;renderSharedState();
   try {
     const data=validateSharedSnapshot(await requestSharedSnapshot(manual));
-    if (data.generation<sharedState.generation) return false;
+    if(sharedState.catalogMode==='automatic'&&data.source!=='PRODUCTOS')throw Error('PRODUCTOS todavía no confirmó la lectura. Se reintentará automáticamente.');
     if (sharedState.catalogMode==='automatic' && data.source==='PRODUCTOS' && !data.count) throw Error('La hoja está vacía; se conserva la última base válida.');
     if (!/^[a-f0-9]{64}$/.test(data.manualRevision || data.revision)) throw Error('La revisión del respaldo no es válida.');
     const pending=Boolean(sharedState.pending);
@@ -1720,7 +1753,7 @@ const qrHistoryReady=(async()=>{
     if(!device)await historyTransaction(['meta'],'readwrite',tx=>tx.objectStore('meta').put({key:'device',value:qrHistoryState.deviceId}));
     await historyMigrateLegacy();await historyRefreshRows();
     window.addEventListener('message',historyReceive);
-    const frame=document.createElement('iframe');frame.title='Conexión del inventario';frame.hidden=true;frame.src=historyBridgeUrl();document.body.appendChild(frame);
+    const frame=document.createElement('iframe');frame.title='Conexión del inventario';prepareGoogleConnectionFrame(frame);frame.src=historyBridgeUrl();document.body.appendChild(frame);
     window.addEventListener('online',()=>historyFlush());
     window.addEventListener('storage',event=>{if(event.key===STORAGE_KEYS.history)historyMigrateLegacy().then(()=>historyFlush());});
     window.addEventListener('focus',()=>{historyMigrateLegacy().then(()=>historyFlush());if(qrHistoryState.ready)historyLoadPage(false).catch(e=>historyStatus(e.message));});
@@ -2009,7 +2042,7 @@ async function showMovementStock(){
 const saveLabelHistoryOnly=saveHistory;saveHistory=registerMovement;
 historyBridgeUrl=function(){const url=new URL(MOVEMENT_ENDPOINT);url.searchParams.set('view','history');url.searchParams.set('channel',qrHistoryState.channel);url.searchParams.set('db',qrHistoryState.db);if(qrHistoryState.db==='qa')url.searchParams.set('parentOrigin',location.origin);return url.toString();};
 const movementOriginalSelect=selectProduct;selectProduct=function(product){const result=movementOriginalSelect(product);movementUpdateUnit(product);movementFormChanged();return result;};
-const movementOriginalApplyProducts=applySharedProducts;applySharedProducts=function(items,data){const result=movementOriginalApplyProducts(items,data);movementUpdateUnit(selectedProduct);movementFormChanged();return result;};
+const movementOriginalApplyProducts=applySharedProducts;applySharedProducts=function(items,data){const field=document.getElementById('searchInput'),previous=selectedProduct,selectedText=previous&&field.value===previous.code+' · '+previous.desc;const result=movementOriginalApplyProducts(items,data);if(selectedText&&selectedProduct)field.value=selectedProduct.code+' · '+selectedProduct.desc;movementUpdateUnit(selectedProduct);movementFormChanged();return result;};
 const movementOriginalScan=processScan;
 processScan=function(text){const ok=movementOriginalScan(text);movementState.scan=ok?parseQR(text):null;if(ok){const box=document.getElementById('scanResult'),actions=document.createElement('div');actions.className='actions';for(const [mode,title] of [['ingreso','Registrar ingreso'],['salida','Salida a sede'],['traslado','Traslado entre sedes'],['etiqueta','Solo etiqueta']]){const button=document.createElement('button');button.type='button';button.className='btn btn-blue';button.textContent=title;button.onclick=()=>useScannedMovement(mode);actions.appendChild(button);}box.appendChild(actions);}return ok;};
 function useScannedMovement(mode){const q=movementState.scan;if(!q)return;const p=products.find(p=>q.COD&&norm(p.code)===norm(q.COD))||products.find(p=>q.ID&&norm(p.id)===norm(q.ID));if(!p){notice('Actualiza PRODUCTOS para reconocer el producto.');return;}selectProduct(p);document.getElementById('lotField').value=q.LOTE||'';document.getElementById('expiryField').value=/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'';document.getElementById('movementMode').value=mode;document.getElementById('movementAmount').value='';movementState.lastSignature='';changeMovementMode();openPage('labels');renderDesignEditor();updatePreview();document.getElementById(mode==='etiqueta'?'qtyField':'movementAmount').focus();notice('QR cargado. Completa la cantidad y los datos del movimiento.');}
