@@ -695,7 +695,7 @@ body.movement-feedback-open{overflow:hidden}
       <div><label for="movementDocument">Documento registrado</label><input id="movementDocument" maxlength="500"></div>
     </div>
     <p class="device-note">La fecha y el ID del movimiento se generan al guardar. La cantidad del movimiento es independiente de la cantidad de etiquetas. El factor de empaque no multiplica la cantidad. El QR conserva solo su información actual.</p>
-    <button class="btn btn-soft" type="button" onclick="showMovementStock()">Consultar stock por lote</button><div id="movementStock" class="history-wrap"></div>
+    <button class="btn btn-soft" type="button" onclick="showMovementStock()">Ver stock</button><div id="movementStock" class="history-wrap"></div>
   </div>
   <p id="movementStatus" class="status" role="status" aria-live="polite"></p>
   <div id="movementPendingReview" class="pending-review" hidden></div>
@@ -1784,6 +1784,18 @@ const qrHistoryReady=(async()=>{
     <button id="movementFeedbackClose" class="btn btn-soft movement-feedback-close" type="button" onclick="movementFeedbackClose()">Seguir trabajando</button>
   </div>
 </dialog>
+<style>
+.origin-context{margin:12px 0;padding:14px;border:1px solid #cadce8;border-radius:14px;background:#fff}.origin-context p{margin:0 0 8px}.origin-context label{margin-top:10px}.origin-context[data-state="error"]{border-color:#b94b4b;color:#922c39}.origin-context button{margin-top:10px}.stock-dialog{width:min(940px,calc(100vw - 24px));max-height:90dvh;box-sizing:border-box;border:0;border-radius:22px;padding:24px;color:#123359;background:#fff}.stock-dialog::backdrop{background:rgba(9,31,57,.65)}.stock-dialog header{display:flex;gap:16px;justify-content:space-between;align-items:flex-start}.stock-dialog h2{margin:0 0 8px}.stock-dialog header button{flex-shrink:0}.stock-dialog .stock-filters{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:20px 0}.stock-dialog .stock-filters>label:first-child{flex:1;min-width:190px}.stock-dialog .stock-lot-toggle{display:flex;align-items:center;gap:10px}.stock-dialog .stock-lot-toggle input{width:auto}.stock-dialog .stock-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}.stock-total{padding:12px;border-radius:12px;background:#eff6fb}.stock-total strong{display:block;font-size:1.4rem;margin-top:6px}.stock-dialog .history-wrap{overflow:auto;margin-top:18px}.stock-dialog table{width:100%;min-width:560px}.stock-dialog td,.stock-dialog th{padding:10px;text-align:left}.stock-dialog [data-state="error"]{color:#a13240}.stock-dialog footer{margin-top:18px;color:#526675}.stock-dialog [hidden],.origin-context [hidden]{display:none!important}@media(max-width:600px){.stock-dialog{padding:18px}.stock-dialog h2{font-size:1.5rem}.stock-dialog header button{padding:10px}.stock-dialog .stock-filters{display:block}.stock-dialog .stock-lot-toggle{margin:14px 0}.stock-dialog .stock-totals{grid-template-columns:1fr 1fr}}
+</style>
+<dialog id="inventoryStockDialog" class="stock-dialog" aria-labelledby="inventoryStockTitle">
+  <header><div><h2 id="inventoryStockTitle">Stock del producto</h2><p id="inventoryStockProduct"></p></div><button id="inventoryStockClose" class="btn btn-soft" type="button" aria-label="Cerrar consulta de stock">Cerrar</button></header>
+  <div class="stock-filters"><label for="inventoryStockWarehouse">Sede o almacén<select id="inventoryStockWarehouse"><option value="">Todas las sedes y almacenes</option></select></label><label class="stock-lot-toggle"><input id="inventoryStockOnlyLot" type="checkbox">Solo el lote y vencimiento escaneados</label><button id="inventoryStockRefresh" class="btn btn-blue" type="button">Actualizar stock</button></div>
+  <p id="inventoryStockStatus" role="status" aria-live="polite"></p>
+  <div id="inventoryStockTotals" class="stock-totals"></div>
+  <div class="history-wrap"><table class="history-table"><thead><tr><th>Almacén</th><th>Ubicación</th><th>Lote</th><th>Vence</th><th>Disponible</th><th>U.M.</th></tr></thead><tbody id="inventoryStockRows"></tbody></table></div>
+  <footer id="inventoryStockAsOf"></footer>
+</dialog>
+
 <script>
 const MOVEMENT_LABEL_CSS='.label-sheet .design-enabled .custom-zone:empty{display:none}.label-sheet .design-enabled .ticket-inner{grid-template-rows:max-content max-content max-content max-content minmax(var(--reserved-qr),1fr) max-content}.label-sheet .design-enabled .tcode,.label-sheet .design-enabled .tdesc{min-height:0;max-width:100%;margin-top:0}.label-sheet .design-enabled .custom-field{min-height:0}';
 const movementPrintDocument=printDocument;
@@ -1946,7 +1958,7 @@ document.getElementById('movementFeedback').addEventListener('cancel',event=>{ev
 
 const MOVEMENT_ENDPOINT='https://script.google.com/macros/s/AKfycbwI9V7Ahh3y_fFndJex9BXaszM3mWdNIm4GQwmaFQyhJlmOehzunaiirWsCzHWQnOF9/exec';
 const movementState={busy:false,queuing:false,pending:null,queue:[],lastSignature:'',lastResult:null,scan:null,timer:null,lastCheckedAt:0,checkingLast:false};
-const movementWarehouses=[['Almacen Principal','Almacén Principal'],['Almacen Sjm','San Juan de Miraflores'],['Almacen VES','Villa El Salvador'],['Almacen Surco','Surco']];
+let movementWarehouses=[['Almacen Principal','Almacén Principal'],['Almacen Sjm','San Juan de Miraflores'],['Almacen VES','Villa El Salvador'],['Almacen Surco','Surco']];
 const movementInputs=['movementAmount','movementUnit','movementOrigin','movementDestination','movementResponsible','movementLocation','movementDestinationLocation','movementCondition','movementTemperature','movementProvider','movementPurchase','movementManufacturer','movementBrand','movementPack','movementDocument'];
 const movementSignatureFields=['mode','code','unit','amount','origin','destination','responsible','location','destinationLocation','lot','exp','condition','temperature','provider','purchase','manufacturer','brand','pack','document'];
 
@@ -1958,7 +1970,7 @@ function changeMovementMode(){
   const mode=movementMode(),inventory=mode!=='etiqueta';
   document.getElementById('movementFields').hidden=!inventory;document.querySelectorAll('[data-ingreso]').forEach(el=>el.hidden=mode!=='ingreso');document.getElementById('movementDestinationLocationCell').hidden=mode==='ingreso';document.getElementById('movementLocationLabel').textContent=mode==='ingreso'?'Ubicación de ingreso':'Ubicación de origen';
   movementWarehouseOptions('movementOrigin',mode==='traslado'?movementWarehouses.slice(1):mode==='salida'?movementWarehouses.slice(0,1):movementWarehouses,mode==='ingreso');movementWarehouseOptions('movementDestination',mode==='ingreso'?movementWarehouses.slice(0,1):movementWarehouses.slice(1));
-  if(mode==='traslado'&&document.getElementById('movementOrigin').value===document.getElementById('movementDestination').value)document.getElementById('movementDestination').value=movementWarehouses.slice(1).find(([v])=>v!==document.getElementById('movementOrigin').value)[0];
+  if(mode==='traslado'&&document.getElementById('movementOrigin').value===document.getElementById('movementDestination').value)document.getElementById('movementDestination').value=(movementWarehouses.slice(1).find(([v])=>v!==document.getElementById('movementOrigin').value)||[''])[0];
   document.getElementById('movementOrigin').disabled=mode==='salida';document.getElementById('movementDestination').disabled=mode==='ingreso';if(mode==='ingreso')document.getElementById('movementOrigin').value='';
   document.getElementById('movementExplanation').textContent=mode==='etiqueta'?'Solo etiqueta: guarda el QR en HISTORIAL_QR. No genera movimientos.':mode==='ingreso'?'Guarda el ingreso en INGRESOS y KARDEX.':'Guarda una fila en SALIDA y actualiza KARDEX: resta del origen y suma al destino.';
   document.getElementById('registerMovementButton').textContent=mode==='etiqueta'?'Registrar solo QR':mode==='ingreso'?'Registrar ingreso':mode==='salida'?'Registrar salida a sede':'Registrar traslado';movementFormChanged();
@@ -2044,13 +2056,171 @@ historyBridgeUrl=function(){const url=new URL(MOVEMENT_ENDPOINT);url.searchParam
 const movementOriginalSelect=selectProduct;selectProduct=function(product){const result=movementOriginalSelect(product);movementUpdateUnit(product);movementFormChanged();return result;};
 const movementOriginalApplyProducts=applySharedProducts;applySharedProducts=function(items,data){const field=document.getElementById('searchInput'),previous=selectedProduct,selectedText=previous&&field.value===previous.code+' · '+previous.desc;const result=movementOriginalApplyProducts(items,data);if(selectedText&&selectedProduct)field.value=selectedProduct.code+' · '+selectedProduct.desc;movementUpdateUnit(selectedProduct);movementFormChanged();return result;};
 const movementOriginalScan=processScan;
-processScan=function(text){const ok=movementOriginalScan(text);movementState.scan=ok?parseQR(text):null;if(ok){const box=document.getElementById('scanResult'),actions=document.createElement('div');actions.className='actions';for(const [mode,title] of [['ingreso','Registrar ingreso'],['salida','Salida a sede'],['traslado','Traslado entre sedes'],['etiqueta','Solo etiqueta']]){const button=document.createElement('button');button.type='button';button.className='btn btn-blue';button.textContent=title;button.onclick=()=>useScannedMovement(mode);actions.appendChild(button);}box.appendChild(actions);}return ok;};
+processScan=function(text){const ok=movementOriginalScan(text);movementState.scan=ok?parseQR(text):null;if(ok){const box=document.getElementById('scanResult'),actions=document.createElement('div');actions.className='actions';for(const [mode,title] of [['ingreso','Registrar ingreso'],['salida','Salida a sede'],['traslado','Traslado entre sedes'],['etiqueta','Solo etiqueta'],['stock','Ver stock']]){const button=document.createElement('button');button.type='button';button.className='btn btn-blue';button.textContent=title;button.onclick=()=>mode==='stock'?showScannedStock():useScannedMovement(mode);actions.appendChild(button);}box.appendChild(actions);}return ok;};
 function useScannedMovement(mode){const q=movementState.scan;if(!q)return;const p=products.find(p=>q.COD&&norm(p.code)===norm(q.COD))||products.find(p=>q.ID&&norm(p.id)===norm(q.ID));if(!p){notice('Actualiza PRODUCTOS para reconocer el producto.');return;}selectProduct(p);document.getElementById('lotField').value=q.LOTE||'';document.getElementById('expiryField').value=/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'';document.getElementById('movementMode').value=mode;document.getElementById('movementAmount').value='';movementState.lastSignature='';changeMovementMode();openPage('labels');renderDesignEditor();updatePreview();document.getElementById(mode==='etiqueta'?'qtyField':'movementAmount').focus();notice('QR cargado. Completa la cantidad y los datos del movimiento.');}
 function initializeMovements(){
   movementInputs.concat(['lotField','expiryField','qtyField']).forEach(id=>document.getElementById(id).addEventListener('input',movementFormChanged));document.getElementById('movementMode').addEventListener('change',changeMovementMode);movementUpdateUnit(selectedProduct);changeMovementMode();document.querySelectorAll('button[onclick="connectQrHistory()"]:not(#retryMovementButton)').forEach(b=>b.textContent='Reconectar inventario');
   window.addEventListener('identical-google-ready',()=>{movementQueueSummary();movementSyncPending();movementRefreshLast();});window.addEventListener('identical-queue-updated',movementQueueSummary);window.addEventListener('online',()=>{historyFlush();movementSyncPending();});window.addEventListener('focus',()=>{movementSyncPending();movementRefreshLast(true);});
   qrHistoryReady.then(async()=>{if(!qrHistoryState.storage)return;await movementRefreshQueue();const last=await historyRead('meta','movement:last');if(last){movementState.lastSignature=last.value.signature;movementState.lastResult=last.value.result;movementShowReceipt(last.value.result);movementStatus(last.value.result.warning||'Último movimiento confirmado en '+last.value.result.source+' (fila '+last.value.result.sourceRow+') y KARDEX.',last.value.result.warning?'info':'success');}movementSyncPending();movementRefreshLast();});setInterval(()=>{if(!document.hidden){movementQueueSummary();movementSyncPending();}},15000);
 }
+const InventoryStockCore=(()=>{
+  const text=value=>String(value==null?'':value).trim();
+  const key=value=>text(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+  const warehouse=value=>{
+    const x=key(value).replace(/^ALMACEN\s+/,'').replace(/^SEDE\s+/,'').trim();
+    if(['PRINCIPAL','CENTRAL','PRICIPAL','ALMACEN PRINCIPAL','ALMACEN CENTRAL'].includes(x))return 'PRINCIPAL';
+    if(x==='SJM'||x.includes('SAN JUAN DE MIRAFLORES')||x.includes('SAN JUAN MIRAFLORES'))return 'SJM';
+    if(x==='VES'||x.includes('VILLA EL SALVADOR'))return 'VES';
+    if(x.includes('SURCO'))return 'SURCO';
+    return x;
+  };
+  const candidates=(result,query)=>(result.lots||[]).filter(p=>Number(p.balance)>1e-9&&warehouse(p.warehouse)===warehouse(query.origin)&&key(p.lot)===key(query.lot)&&text(p.exp)===text(query.exp));
+  const variants=lot=>{
+    const unique=new Map();
+    for(const r of lot.references||[]){const id=JSON.stringify([text(r.unit),text(r.pack),text(r.document)]);if(!unique.has(id))unique.set(id,r);}
+    return [...unique.values()];
+  };
+  const common=(refs,field)=>{const values=[...new Set(refs.map(r=>text(r[field])))];return values.length===1?values[0]:'';};
+  const totals=(result,filter={})=>{
+    const lots=(result.lots||[]).filter(p=>(!filter.onlyLot||(key(p.lot)===key(filter.lot)&&text(p.exp)===text(filter.exp)))&&(!filter.warehouse||warehouse(p.warehouse)===warehouse(filter.warehouse)));
+    return {lots,byWarehouse:(result.configuredWarehouses||[]).filter(w=>!filter.warehouse||warehouse(w.value)===warehouse(filter.warehouse)).map(w=>({value:w.value,label:w.label,balance:filter.onlyLot?lots.filter(p=>warehouse(p.warehouse)===warehouse(w.value)).reduce((sum,p)=>sum+Number(p.balance),0):(result.warehouses||[]).filter(p=>warehouse(p.warehouse)===warehouse(w.value)).reduce((sum,p)=>sum+Number(p.balance),0)}))};
+  };
+  return {text,key,warehouse,candidates,variants,common,totals};
+})();
+
+const originStockState={sequence:0,timer:null,key:'',data:null,auto:{},dirty:new Set(),productCode:'',loading:false};
+const stockViewState={sequence:0,query:null,data:null,loading:false};
+const originStockFields=['movementLocation','movementPack','movementDocument','movementUnit'];
+function inventoryStockFormat(value){return Number(value).toLocaleString('es-PE',{maximumFractionDigits:6});}
+function inventoryStockDate(value){return /^\d{4}-\d{2}-\d{2}$/.test(value||'')?value.slice(8)+'/'+value.slice(5,7)+'/'+value.slice(0,4):'—';}
+function movementOriginQuery(){return selectedProduct&&['salida','traslado'].includes(movementMode())?{code:selectedProduct.code,origin:document.getElementById('movementOrigin').value,lot:document.getElementById('lotField').value.trim(),exp:document.getElementById('expiryField').value}:null;}
+function movementOriginKey(query){return query?JSON.stringify([query.code,InventoryStockCore.warehouse(query.origin),InventoryStockCore.key(query.lot),query.exp]):'';}
+function movementOriginMessage(message,state='info'){const root=document.getElementById('movementOriginContext');root.hidden=!message;root.dataset.state=state;document.getElementById('movementOriginContextStatus').textContent=message;}
+function movementOriginClearAuto(){for(const id of new Set([...Object.keys(originStockState.auto),...originStockState.dirty])){const field=document.getElementById(id);if(!(id==='movementUnit'&&selectedProduct&&selectedProduct.um))field.value='';}originStockState.auto={};originStockState.dirty.clear();}
+function movementOriginPut(id,value,force=false){const field=document.getElementById(id);if(id==='movementUnit'&&selectedProduct&&selectedProduct.um)return;if(originStockState.dirty.has(id)&&!force)return;field.value=value||'';originStockState.auto[id]=field.value;if(id==='movementUnit'&&field.value)document.getElementById('movementUnitHint').textContent='Unidad del ingreso registrado. PRODUCTOS no indica U.M.';}
+function movementApplyWarehouses(choices){
+  if(!Array.isArray(choices)||!choices.length)return;
+  const unique=new Map();for(const item of choices){if(!item||!item.value||!item.label)continue;unique.set(InventoryStockCore.warehouse(item.value),[item.value,item.label]);}
+  if(!unique.has('PRINCIPAL'))return;
+  const next=[unique.get('PRINCIPAL'),...[...unique.entries()].filter(([key])=>key!=='PRINCIPAL').map(([,value])=>value)];
+  const signature=JSON.stringify(next);if(signature===JSON.stringify(movementWarehouses))return;
+  const previous=['movementOrigin','movementDestination'].map(id=>document.getElementById(id).value),mode=movementMode();movementWarehouses=next;
+  movementWarehouseOptions('movementOrigin',mode==='traslado'?next.slice(1):mode==='salida'?next.slice(0,1):next,mode==='ingreso');
+  movementWarehouseOptions('movementDestination',mode==='ingreso'?next.slice(0,1):next.slice(1));
+  ['movementOrigin','movementDestination'].forEach((id,i)=>{const field=document.getElementById(id),match=[...field.options].find(o=>InventoryStockCore.warehouse(o.value)===InventoryStockCore.warehouse(previous[i]));if(match)field.value=match.value;});
+  movementEnsureDifferentSites();movementFormChanged();
+}
+function movementEnsureDifferentSites(){if(movementMode()!=='traslado')return;const origin=document.getElementById('movementOrigin'),destination=document.getElementById('movementDestination');if(InventoryStockCore.warehouse(origin.value)===InventoryStockCore.warehouse(destination.value)){const option=[...destination.options].find(o=>InventoryStockCore.warehouse(o.value)!==InventoryStockCore.warehouse(origin.value));destination.value=option?option.value:'';}}
+function movementOriginConfirmed(){if(!movementState.lastSignature)return false;try{return movementCanonicalSignature(movementSignature())===movementCanonicalSignature(movementState.lastSignature);}catch(e){return false;}}
+function movementOriginSchedule(force=false){
+  clearTimeout(originStockState.timer);
+  const query=movementOriginQuery(),key=movementOriginKey(query);
+  if(key!==originStockState.key){originStockState.sequence++;movementOriginClearAuto();originStockState.key=key;originStockState.data=null;originStockState.productCode=query?query.code:'';originStockState.loading=false;document.getElementById('movementOriginLocationChoiceCell').hidden=true;document.getElementById('movementOriginReferenceChoiceCell').hidden=true;movementFormChanged();}
+  if(!query){movementOriginMessage('');return;}
+  if(movementOriginConfirmed())return;
+  if(!qrHistoryState.ready){movementOriginMessage('Esperando conexión para consultar el ingreso y el stock de este lote.');return;}
+  if(!force&&originStockState.data&&Date.now()-Date.parse(originStockState.data.asOf||'')<30000)return;
+  originStockState.timer=setTimeout(()=>movementLoadOrigin(),force?0:250);
+}
+async function movementLoadOrigin(){
+  const query=movementOriginQuery(),key=movementOriginKey(query);if(!query||key!==originStockState.key)return;
+  const sequence=++originStockState.sequence;originStockState.loading=true;movementFormChanged();
+  movementOriginMessage('Consultando ubicación y datos del ingreso…');
+  try{
+    const result=await historySend('stock',{code:query.code});
+    if(sequence!==originStockState.sequence||movementOriginKey(movementOriginQuery())!==key||movementOriginConfirmed())return;
+    if(result.db!==qrHistoryState.db||result.code!==query.code||!Array.isArray(result.lots))throw Error('No se pudo comprobar el stock de este producto.');
+    if(!Object.prototype.hasOwnProperty.call(result,'configuredWarehouses'))throw Error('El servicio de inventario aún no tiene disponible el autocompletado.');
+    movementApplyWarehouses(result.configuredWarehouses);originStockState.data=result;movementRenderOrigin(result,query);
+  }catch(e){if(sequence===originStockState.sequence)movementOriginMessage('No se pudo consultar el ingreso. '+e.message+' Puedes volver a consultar.','error');}
+  finally{if(sequence===originStockState.sequence){originStockState.loading=false;movementFormChanged();}}
+}
+function movementRenderOrigin(result,query){
+  const choices=InventoryStockCore.candidates(result,query),select=document.getElementById('movementOriginLocationChoice'),cell=document.getElementById('movementOriginLocationChoiceCell');
+  select.replaceChildren();cell.hidden=choices.length<2;document.getElementById('movementOriginReferenceChoiceCell').hidden=true;
+  if(!choices.length){movementOriginMessage('Sin stock disponible para este código, lote y vencimiento en el almacén de origen. Verifica el ingreso antes de registrar.','error');return;}
+  const manual=document.getElementById('movementLocation').value;
+  let chosen=choices.length===1?0:choices.findIndex(p=>InventoryStockCore.key(p.location)===InventoryStockCore.key(manual));
+  if(choices.length>1){const blank=document.createElement('option');blank.value='';blank.textContent='Elige la ubicación de donde retirarás el producto';select.appendChild(blank);choices.forEach((p,index)=>{const option=document.createElement('option');option.value=String(index);option.textContent=(p.location||'Sin ubicación registrada')+' · '+inventoryStockFormat(p.balance)+' disponibles';select.appendChild(option);});select.value=chosen<0?'':String(chosen);}
+  select.onchange=()=>{const index=select.value===''?-1:Number(select.value);if(index<0){movementOriginClearAuto();movementOriginMessage('El lote tiene stock en varias ubicaciones. Elige la ubicación de origen.');return;}originStockState.dirty.delete('movementLocation');movementOriginPut('movementLocation',choices[index].location,true);movementApplyOriginLot(choices[index],result);};
+  if(chosen<0){const refs=choices.flatMap(p=>InventoryStockCore.variants(p));movementOriginPut('movementPack',InventoryStockCore.common(refs,'pack'));movementOriginPut('movementDocument',InventoryStockCore.common(refs,'document'));movementOriginPut('movementUnit',InventoryStockCore.common(refs,'unit'));movementOriginMessage('El lote tiene stock en varias ubicaciones. Elige la ubicación de origen.');movementFormChanged();return;}
+  movementOriginPut('movementLocation',choices[chosen].location);movementApplyOriginLot(choices[chosen],result);
+}
+function movementApplyOriginLot(lot,result){
+  const refs=InventoryStockCore.variants(lot),select=document.getElementById('movementOriginReferenceChoice'),cell=document.getElementById('movementOriginReferenceChoiceCell');select.replaceChildren();
+  const apply=(reference,force=false)=>{for(const [id,field] of [['movementPack','pack'],['movementDocument','document'],['movementUnit','unit']])movementOriginPut(id,reference?reference[field]:InventoryStockCore.common(refs,field),force);movementFormChanged();};
+  cell.hidden=refs.length<2;
+  if(refs.length>1){const option=document.createElement('option');option.value='';option.textContent='Elige el ingreso de referencia';select.appendChild(option);refs.forEach((r,i)=>{const option=document.createElement('option');option.value=String(i);option.textContent=[r.source+' fila '+r.row,r.date,r.pack,r.document].filter(Boolean).join(' · ');select.appendChild(option);});select.onchange=()=>{if(select.value===''){apply(null);return;}for(const id of ['movementPack','movementDocument','movementUnit'])originStockState.dirty.delete(id);apply(refs[Number(select.value)],true);};}
+  apply(refs.length===1?refs[0]:null);
+  const message=refs.length>1?'La ubicación está identificada. Hay ingresos con datos distintos; elige el ingreso de referencia para completar empaque y documento.':refs.length?'Datos completados desde '+refs[0].source+' (fila '+refs[0].row+'). Disponible aquí: '+inventoryStockFormat(lot.balance)+'.':'Ubicación identificada. No se encontraron datos de empaque y documento para esta ubicación.';
+  movementOriginMessage(message+(result.pending?' Hay movimientos del producto con datos pendientes de revisión.':''));
+}
+function movementCheckOriginSelection(data){
+  if(!['salida','traslado'].includes(data.mode))return;
+  if(originStockState.loading)throw Error('Espera a que termine la consulta del ingreso y stock de origen.');
+  if(!originStockState.data){if(!data.location)throw Error('Consulta el ingreso para completar la ubicación de origen, o revisa y completa los datos manualmente.');return;}
+  const query=movementOriginQuery();if(movementOriginKey(query)!==originStockState.key)return;
+  const choices=InventoryStockCore.candidates(originStockState.data,query);
+  if(choices.length>1&&!choices.some(p=>InventoryStockCore.key(p.location)===InventoryStockCore.key(data.location)))throw Error('Elige una ubicación de origen entre las que tienen stock para este lote.');
+  const reference=document.getElementById('movementOriginReferenceChoice');if(!document.getElementById('movementOriginReferenceChoiceCell').hidden&&reference.value===''&&(!originStockState.dirty.has('movementPack')||!originStockState.dirty.has('movementDocument')))throw Error('Elige el ingreso de referencia para completar el empaque y documento, o revisa ambos campos manualmente.');
+}
+function inventoryStockQueryFromScan(){const q=movementState.scan;if(!q)return null;const p=products.find(p=>q.COD&&norm(p.code)===norm(q.COD))||products.find(p=>q.ID&&norm(p.id)===norm(q.ID));return {code:p?p.code:q.COD||'',description:p?p.desc:'',lot:q.LOTE||'',exp:/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'',hasLot:Object.prototype.hasOwnProperty.call(q,'LOTE')};}
+function showScannedStock(){const query=inventoryStockQueryFromScan();if(!query||!query.code){notice('Actualiza PRODUCTOS para reconocer el código de este QR.');return;}inventoryStockOpen(query);}
+function inventoryStockOpen(query){
+  stockViewState.sequence++;stockViewState.query={...query};stockViewState.data=null;
+  document.getElementById('inventoryStockProduct').textContent=query.code+(query.description?' · '+query.description:'');
+  document.getElementById('inventoryStockOnlyLot').checked=Boolean(query.hasLot);document.getElementById('inventoryStockOnlyLot').disabled=!query.hasLot;
+  document.getElementById('inventoryStockWarehouse').value='';document.getElementById('inventoryStockTotals').replaceChildren();document.getElementById('inventoryStockRows').replaceChildren();document.getElementById('inventoryStockAsOf').textContent='';
+  const dialog=document.getElementById('inventoryStockDialog');if(!dialog.open)dialog.showModal();inventoryStockRefresh();
+}
+async function inventoryStockRefresh(){
+  const query=stockViewState.query;if(!query)return;const sequence=++stockViewState.sequence,button=document.getElementById('inventoryStockRefresh'),status=document.getElementById('inventoryStockStatus');
+  button.disabled=true;stockViewState.loading=true;status.dataset.state='info';status.textContent='Consultando stock en la hoja de cálculo…';
+  try{
+    if(!qrHistoryState.ready)throw Error('El inventario aún no está conectado. Vuelve a consultar cuando se restablezca la conexión.');
+    const result=await historySend('stock',{code:query.code});if(sequence!==stockViewState.sequence)return;
+    if(result.db!==qrHistoryState.db||result.code!==query.code||!Array.isArray(result.lots))throw Error('La respuesta no corresponde a este producto.');
+    if(!Array.isArray(result.configuredWarehouses)||!result.asOf)throw Error('El servicio de inventario aún no tiene disponible esta consulta.');
+    stockViewState.data=result;movementApplyWarehouses(result.configuredWarehouses);
+    const select=document.getElementById('inventoryStockWarehouse'),previous=select.value;select.replaceChildren();
+    for(const [value,label] of [['','Todas las sedes y almacenes'],...result.configuredWarehouses.map(w=>[w.value,w.label])]){const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option);}if([...select.options].some(o=>o.value===previous))select.value=previous;
+    if(result.product)document.getElementById('inventoryStockProduct').textContent=result.code+' · '+result.product.description;
+    inventoryStockRender();
+  }catch(e){if(sequence===stockViewState.sequence){status.dataset.state='error';status.textContent=e.message+(stockViewState.data?' La información anterior se conserva; no se ha confirmado su actualización.':'');}}
+  finally{if(sequence===stockViewState.sequence){button.disabled=false;stockViewState.loading=false;}}
+}
+function inventoryStockRender(){
+  const result=stockViewState.data,query=stockViewState.query;if(!result||!query)return;
+  const onlyLot=document.getElementById('inventoryStockOnlyLot').checked,filtered=InventoryStockCore.totals(result,{onlyLot,lot:query.lot,exp:query.exp,warehouse:document.getElementById('inventoryStockWarehouse').value});
+  const totals=document.getElementById('inventoryStockTotals'),rows=document.getElementById('inventoryStockRows');totals.replaceChildren();rows.replaceChildren();
+  const unit=result.product&&result.product.unit||InventoryStockCore.common(result.lots.flatMap(p=>p.references||[]),'unit');
+  filtered.byWarehouse.forEach(item=>{const card=document.createElement('div');card.className='stock-total';const label=document.createElement('span'),value=document.createElement('strong');label.textContent=item.label;value.textContent=inventoryStockFormat(item.balance)+(unit?' '+unit:'');card.append(label,value);totals.appendChild(card);});
+  filtered.lots.forEach(p=>{const row=document.createElement('tr');for(const value of [p.warehouse,p.location||'Sin ubicación registrada',p.lot||'Sin lote',inventoryStockDate(p.exp),inventoryStockFormat(p.balance),unit||InventoryStockCore.common(p.references||[],'unit')||'—']){const cell=document.createElement('td');cell.textContent=value;row.appendChild(cell);}rows.appendChild(row);});
+  const status=document.getElementById('inventoryStockStatus');status.dataset.state=result.pending?'error':'success';status.textContent=(onlyLot?'Lote '+(query.lot||'sin lote')+' · vence '+inventoryStockDate(query.exp)+'. ':'Todos los lotes del producto. ')+(filtered.lots.length?'Existencias disponibles por ubicación.':'Sin stock positivo para este filtro.')+(result.pending?' Hay '+result.pending+' movimientos con datos pendientes de revisión; revisa la hoja antes de decidir una salida.':'');
+  document.getElementById('inventoryStockAsOf').textContent='Leído de INGRESOS y SALIDA: '+new Date(result.asOf).toLocaleString('es-PE')+'. La consulta no registra movimientos.';
+}
+function initializeStockContext(){
+  const root=document.createElement('div');root.id='movementOriginContext';root.className='origin-context';root.hidden=true;root.innerHTML='<p id="movementOriginContextStatus" role="status" aria-live="polite"></p><div id="movementOriginLocationChoiceCell" hidden><label for="movementOriginLocationChoice">Ubicaciones con stock de este lote</label><select id="movementOriginLocationChoice"></select></div><div id="movementOriginReferenceChoiceCell" hidden><label for="movementOriginReferenceChoice">Ingreso de referencia</label><select id="movementOriginReferenceChoice"></select></div><button id="movementOriginRetry" type="button" class="btn btn-soft">Volver a consultar ingreso</button>';
+  document.getElementById('movementFields').prepend(root);document.getElementById('movementOriginRetry').addEventListener('click',()=>movementOriginSchedule(true));
+  for(const id of originStockFields)document.getElementById(id).addEventListener('input',()=>{originStockState.dirty.add(id);});
+  for(const id of ['lotField','expiryField','movementOrigin']){document.getElementById(id).addEventListener('input',()=>movementOriginSchedule());document.getElementById(id).addEventListener('change',()=>{movementEnsureDifferentSites();movementOriginSchedule();});}
+  document.getElementById('movementAmount').addEventListener('focus',()=>movementOriginSchedule());
+  document.getElementById('inventoryStockClose').addEventListener('click',()=>document.getElementById('inventoryStockDialog').close());
+  document.getElementById('inventoryStockRefresh').addEventListener('click',inventoryStockRefresh);
+  document.getElementById('inventoryStockWarehouse').addEventListener('change',inventoryStockRender);document.getElementById('inventoryStockOnlyLot').addEventListener('change',inventoryStockRender);
+  window.addEventListener('identical-google-ready',()=>{movementOriginSchedule(true);if(document.getElementById('inventoryStockDialog').open)inventoryStockRefresh();});
+  window.addEventListener('focus',()=>{movementOriginSchedule(true);if(document.getElementById('inventoryStockDialog').open)inventoryStockRefresh();});
+}
+const stockOriginalChangeMode=changeMovementMode;changeMovementMode=function(){const result=stockOriginalChangeMode();movementOriginSchedule();return result;};
+const stockOriginalFormChanged=movementFormChanged;movementFormChanged=function(){const result=stockOriginalFormChanged();if(['salida','traslado'].includes(movementMode())&&originStockState.loading)document.getElementById('registerMovementButton').disabled=true;return result;};
+const stockOriginalSelect=selectProduct;selectProduct=function(product){const result=stockOriginalSelect(product);movementOriginSchedule();return result;};
+const stockOriginalUseScan=useScannedMovement;useScannedMovement=function(mode){const result=stockOriginalUseScan(mode);movementOriginSchedule(true);return result;};
+const stockOriginalNewMovement=newMovement;newMovement=async function(){const result=await stockOriginalNewMovement();movementOriginSchedule(true);return result;};
+const stockOriginalMovementData=movementData;movementData=function(){const data=stockOriginalMovementData();movementCheckOriginSelection(data);return data;};
+const stockOriginalUpdateUnit=movementUpdateUnit;movementUpdateUnit=function(product){const field=document.getElementById('movementUnit'),previous=field.value,same=product&&originStockState.productCode===product.code;stockOriginalUpdateUnit(product);if(same&&product&&!product.um&&previous){field.value=previous;if(originStockState.auto.movementUnit===previous)document.getElementById('movementUnitHint').textContent='Unidad del ingreso registrado. PRODUCTOS no indica U.M.';}};
+showMovementStock=function(){if(!selectedProduct){notice('Selecciona un producto.');return;}inventoryStockOpen({code:selectedProduct.code,description:selectedProduct.desc,lot:document.getElementById('lotField').value.trim(),exp:document.getElementById('expiryField').value,hasLot:Boolean(document.getElementById('lotField').value.trim()||document.getElementById('expiryField').value)});};
+initializeStockContext();
+
 initializeMovements();
 
 </script>
