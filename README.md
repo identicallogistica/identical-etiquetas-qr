@@ -1,13 +1,14 @@
-# Identical — Etiquetado QR
+# Identical · Sistema Logístico
 
-Sistema publicado: https://identicallogistica.github.io/identical-etiquetas-qr/
+[Ingresar al portal](https://identicallogistica.github.io/identical-etiquetas-qr/)
 
-Entrada: `index.html`. GitHub Pages utiliza `main`, carpeta raíz y HTTPS. El diseño y la impresión original se conservan.
+El portal integra Kardex, Data Maestra y las herramientas QR existentes. El acceso se valida en el servicio privado de Apps Script de Identical.
 
-Los productos se comparten gratuitamente con Google Sheets y Apps Script. El catálogo puede consultarse por Internet. Publicar cambios exige la cuenta `identicallogistica@gmail.com` y confirmación en Google. El historial de impresión y los perfiles de rollo permanecen en cada navegador.
+- **Kardex** permite consultar stock por almacén, ubicación, lote y vencimiento. Registra ingresos, salidas a sedes, traslados y consumo con confirmación e identificador de operación.
+- **Data Maestra** administra productos, códigos, descripciones, imágenes, proveedores, tipos de ítem, sedes, aprobaciones, servicios y configuración de pagos recurrentes. Incluye consulta del historial de cambios.
+- **QR** conserva escáner, etiquetas de productos y ubicaciones, formatos de impresión, PDF y el historial.
+- **Requerimientos** y **Compras** aparecen como módulos no disponibles.
 
-Para trasladar la base anterior, abre Productos en la laptop que la contiene y toca Compartir mi base actual → Publicar base para todos una sola vez. Los demás dispositivos reciben la base automáticamente. Guardar base compartida agrega o actualiza por código; reemplazar toda la base es una opción separada. Cada publicación conserva un respaldo. No se incluyen stock, movimientos ni Kardex.
+Las hojas de Google Sheets contienen los datos operativos. El portal consulta sus cambios al actualizar y periódicamente mientras está abierto. Los registros de la web se confirman en esas mismas hojas.
 
-El modo temporal subdivide el rollo actual de 76 × 76 mm en 1, 2, 4 o 6 partes. El modo nativo imprime una etiqueta por cada etiqueta física; las medidas futuras se configuran cuando se conozcan.
-
-En Windows utiliza la Xprinter instalada. Android invoca la impresión del navegador y permite descargar un PDF. La conexión física de la XP-P323B a un servicio gratuito de impresión Android aún requiere validación con el teléfono y la impresora; no se controla Bluetooth directamente desde JavaScript.
+Los scripts del servidor y la configuración de acceso se conservan en los proyectos privados de Apps Script de Identical.
