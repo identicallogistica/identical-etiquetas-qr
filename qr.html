@@ -2101,7 +2101,7 @@ const InventoryStockCore=(()=>{
   return {text,key,warehouse,candidates,available,variants,common,totals};
 })();
 
-const originStockState={sequence:0,timer:null,key:'',data:null,auto:{},dirty:new Set(),productCode:'',loading:false,selectingLot:false};
+const originStockState={sequence:0,timer:null,key:'',data:null,auto:{},dirty:new Set(),productCode:'',loading:false,selectingLot:false,autoLot:null};
 const stockViewState={sequence:0,query:null,data:null,loading:false};
 const originStockFields=['movementLocation','movementPack','movementDocument','movementUnit'];
 function inventoryStockFormat(value){return Number(value).toLocaleString('es-PE',{maximumFractionDigits:6});}
@@ -2110,6 +2110,14 @@ function movementOriginQuery(){return selectedProduct&&['salida','traslado','con
 function movementOriginKey(query){return query?JSON.stringify([query.code,InventoryStockCore.warehouse(query.origin),InventoryStockCore.key(query.lot),query.exp]):'';}
 function movementOriginMessage(message,state='info'){const root=document.getElementById('movementOriginContext');root.hidden=!message;root.dataset.state=state;document.getElementById('movementOriginContextStatus').textContent=message;}
 function movementOriginClearAuto(){for(const id of new Set([...Object.keys(originStockState.auto),...originStockState.dirty])){const field=document.getElementById(id);if(!(id==='movementUnit'&&selectedProduct&&selectedProduct.um))field.value='';}originStockState.auto={};originStockState.dirty.clear();}
+function movementOriginResetLot(product){
+  const automatic=originStockState.autoLot;if(!automatic||!product||automatic.code===product.code)return;
+  for(const [id,key,source] of [['lotField','lot','lot'],['expiryField','exp','expiry']]){
+    const field=document.getElementById(id);if(automatic[key]===null||field.value!==automatic[key])continue;
+    field.value='';document.querySelectorAll('[data-design-source="'+source+'"]').forEach(input=>input.value='');
+  }
+  originStockState.autoLot=null;
+}
 function movementOriginPut(id,value,force=false){const field=document.getElementById(id);if(id==='movementUnit'&&selectedProduct&&selectedProduct.um)return;if(originStockState.dirty.has(id)&&!force)return;field.value=value||'';originStockState.auto[id]=field.value;if(id==='movementUnit'&&field.value)document.getElementById('movementUnitHint').textContent='Unidad del ingreso registrado. PRODUCTOS no indica U.M.';}
 function movementApplyWarehouses(choices){
   if(!Array.isArray(choices)||!choices.length)return;
@@ -2161,6 +2169,7 @@ function movementRenderOrigin(result,query,resolvedLot=false){
     }
     const lots=[...groups.values()].sort((a,b)=>(a.exp||'9999').localeCompare(b.exp||'9999')||a.lot.localeCompare(b.lot));
     const useLot=lot=>{
+      originStockState.autoLot={code:query.code,lot:query.lot?null:lot.lot,exp:query.exp?null:lot.exp};
       document.getElementById('lotField').value=lot.lot;
       document.getElementById('expiryField').value=lot.exp;
       const resolved=movementOriginQuery();originStockState.key=movementOriginKey(resolved);
@@ -2259,7 +2268,7 @@ function initializeStockContext(){
 }
 const stockOriginalChangeMode=changeMovementMode;changeMovementMode=function(){const result=stockOriginalChangeMode();movementOriginSchedule();return result;};
 const stockOriginalFormChanged=movementFormChanged;movementFormChanged=function(){const result=stockOriginalFormChanged();if(['salida','traslado','consumo'].includes(movementMode())&&(originStockState.loading||originStockState.selectingLot))document.getElementById('registerMovementButton').disabled=true;return result;};
-const stockOriginalSelect=selectProduct;selectProduct=function(product){const result=stockOriginalSelect(product);movementOriginSchedule();return result;};
+const stockOriginalSelect=selectProduct;selectProduct=function(product){movementOriginResetLot(product);const result=stockOriginalSelect(product);movementOriginSchedule();return result;};
 const stockOriginalUseScan=useScannedMovement;useScannedMovement=function(mode){const result=stockOriginalUseScan(mode);movementOriginSchedule(true);return result;};
 const stockOriginalNewMovement=newMovement;newMovement=async function(){const result=await stockOriginalNewMovement();movementOriginSchedule(true);return result;};
 const stockOriginalMovementData=movementData;movementData=function(){const data=stockOriginalMovementData();movementCheckOriginSelection(data);return data;};

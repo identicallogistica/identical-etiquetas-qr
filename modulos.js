@@ -63,7 +63,7 @@ function el(tag, attrs = {}, ...children) {
   return element;
 }
 const formatNumber = new Intl.NumberFormat('es-PE', {
-  maximumFractionDigits: 3
+  maximumFractionDigits: 6
 });
 const fmt = v => v == null || v === '' || !Number.isFinite(Number(v)) ? '—' : formatNumber.format(Number(v));
 const clean = v => String(v ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -974,6 +974,12 @@ const masterStateIndex = {
   sistemas: 3,
   recurrentes: 14
 };
+const masterSearchIndexes = new WeakMap();
+function masterRows(section, query, filter, stateIndex) {
+  if (!masterSearchIndexes.has(section)) masterSearchIndexes.set(section, section.rows.map(row => ({row, text:clean([...row.cells, row.group || ''].join(' '))})));
+  const terms=words(query), state=clean(filter);
+  return masterSearchIndexes.get(section).filter(entry => (!filter || clean(entry.row.cells[stateIndex]) === state) && terms.every(term => entry.text.includes(term))).map(entry => entry.row);
+}
 function rowLabel(section, row) {
   const byKey = {
     productos: [1, 2],
@@ -1028,7 +1034,7 @@ function masterView(c) {
   }));
   const stateIndex = masterStateIndex[active.key],
     states = stateIndex === undefined ? [] : unique(active.rows.map(r => r.cells[stateIndex])).sort(numberSort);
-  let rows = active.rows.filter(r => (!s.filter || clean(r.cells[stateIndex]) === clean(s.filter)) && contains(s.query, [...r.cells, r.group || '']));
+  let rows = masterRows(active, s.query, s.filter, stateIndex);
   if (active.key === 'historial') rows = rows.slice().reverse();
   const defs = (masterDisplay[active.key] || active.headers.map((_, i) => i)).filter(i => i < active.headers.length);
   const editable = active.editable || [];
