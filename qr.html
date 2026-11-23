@@ -2087,6 +2087,7 @@ const InventoryStockCore=(()=>{
     return x;
   };
   const candidates=(result,query)=>(result.lots||[]).filter(p=>Number(p.balance)>1e-9&&warehouse(p.warehouse)===warehouse(query.origin)&&key(p.lot)===key(query.lot)&&text(p.exp)===text(query.exp));
+  const available=(result,query)=>(result.lots||[]).filter(p=>Number(p.balance)>1e-9&&warehouse(p.warehouse)===warehouse(query.origin)&&(!text(query.lot)||key(p.lot)===key(query.lot))&&(!text(query.exp)||text(p.exp)===text(query.exp)));
   const variants=lot=>{
     const unique=new Map();
     for(const r of lot.references||[]){const id=JSON.stringify([text(r.unit),text(r.pack),text(r.document)]);if(!unique.has(id))unique.set(id,r);}
@@ -2097,10 +2098,10 @@ const InventoryStockCore=(()=>{
     const lots=(result.lots||[]).filter(p=>(!filter.onlyLot||(key(p.lot)===key(filter.lot)&&text(p.exp)===text(filter.exp)))&&(!filter.warehouse||warehouse(p.warehouse)===warehouse(filter.warehouse)));
     return {lots,byWarehouse:(result.configuredWarehouses||[]).filter(w=>!filter.warehouse||warehouse(w.value)===warehouse(filter.warehouse)).map(w=>({value:w.value,label:w.label,balance:filter.onlyLot?lots.filter(p=>warehouse(p.warehouse)===warehouse(w.value)).reduce((sum,p)=>sum+Number(p.balance),0):(result.warehouses||[]).filter(p=>warehouse(p.warehouse)===warehouse(w.value)).reduce((sum,p)=>sum+Number(p.balance),0)}))};
   };
-  return {text,key,warehouse,candidates,variants,common,totals};
+  return {text,key,warehouse,candidates,available,variants,common,totals};
 })();
 
-const originStockState={sequence:0,timer:null,key:'',data:null,auto:{},dirty:new Set(),productCode:'',loading:false};
+const originStockState={sequence:0,timer:null,key:'',data:null,auto:{},dirty:new Set(),productCode:'',loading:false,selectingLot:false};
 const stockViewState={sequence:0,query:null,data:null,loading:false};
 const originStockFields=['movementLocation','movementPack','movementDocument','movementUnit'];
 function inventoryStockFormat(value){return Number(value).toLocaleString('es-PE',{maximumFractionDigits:6});}
@@ -2147,7 +2148,39 @@ async function movementLoadOrigin(){
   }catch(e){if(sequence===originStockState.sequence)movementOriginMessage('No se pudo consultar el ingreso. '+e.message+' Puedes volver a consultar.','error');}
   finally{if(sequence===originStockState.sequence){originStockState.loading=false;movementFormChanged();}}
 }
-function movementRenderOrigin(result,query){
+function movementRenderOrigin(result,query,resolvedLot=false){
+  originStockState.selectingLot=false;
+  const label=document.querySelector('label[for="movementOriginLocationChoice"]');
+  label.textContent='Ubicaciones con stock de este lote';
+  if(!resolvedLot&&(!query.lot||!query.exp)){
+    const groups=new Map();
+    for(const item of InventoryStockCore.available(result,query)){
+      const key=JSON.stringify([InventoryStockCore.key(item.lot),InventoryStockCore.text(item.exp)]);
+      if(!groups.has(key))groups.set(key,{lot:item.lot||'',exp:item.exp||'',balance:0});
+      groups.get(key).balance+=Number(item.balance);
+    }
+    const lots=[...groups.values()].sort((a,b)=>(a.exp||'9999').localeCompare(b.exp||'9999')||a.lot.localeCompare(b.lot));
+    const useLot=lot=>{
+      document.getElementById('lotField').value=lot.lot;
+      document.getElementById('expiryField').value=lot.exp;
+      const resolved=movementOriginQuery();originStockState.key=movementOriginKey(resolved);
+      movementRenderOrigin(result,resolved,true);updatePreview();
+      document.querySelectorAll('[data-design-source="lot"]').forEach(field=>field.value=lot.lot);
+      document.querySelectorAll('[data-design-source="expiry"]').forEach(field=>field.value=lot.exp);
+    };
+    if(lots.length===1&&(query.lot!==lots[0].lot||query.exp!==lots[0].exp)){useLot(lots[0]);return;}
+    if(lots.length>1){
+      originStockState.selectingLot=true;
+      const select=document.getElementById('movementOriginLocationChoice');select.replaceChildren();
+      document.getElementById('movementOriginLocationChoiceCell').hidden=false;
+      document.getElementById('movementOriginReferenceChoiceCell').hidden=true;
+      label.textContent='Lotes con stock en el almacén de origen';
+      const blank=document.createElement('option');blank.value='';blank.textContent='Elige el lote de donde retirarás el producto';select.appendChild(blank);
+      lots.forEach((lot,index)=>{const option=document.createElement('option');option.value=String(index);option.textContent=(lot.lot||'Sin lote')+' · vence '+inventoryStockDate(lot.exp)+' · '+inventoryStockFormat(lot.balance)+' disponibles';select.appendChild(option);});
+      select.value='';select.onchange=()=>{if(select.value!=='')useLot(lots[Number(select.value)]);};
+      movementOriginMessage('Hay stock disponible en varios lotes. Elige el lote; se muestran primero los que vencen antes.');movementFormChanged();return;
+    }
+  }
   const choices=InventoryStockCore.candidates(result,query),select=document.getElementById('movementOriginLocationChoice'),cell=document.getElementById('movementOriginLocationChoiceCell');
   select.replaceChildren();cell.hidden=choices.length<2;document.getElementById('movementOriginReferenceChoiceCell').hidden=true;
   if(!choices.length){movementOriginMessage('Sin stock disponible para este código, lote y vencimiento en el almacén de origen. Verifica el ingreso antes de registrar.','error');return;}
@@ -2170,6 +2203,7 @@ function movementApplyOriginLot(lot,result){
 function movementCheckOriginSelection(data){
   if(!['salida','traslado','consumo'].includes(data.mode))return;
   if(originStockState.loading)throw Error('Espera a que termine la consulta del ingreso y stock de origen.');
+  if(originStockState.selectingLot)throw Error('Elige el lote de origen entre los que tienen stock disponible.');
   if(!originStockState.data){if(!data.location)throw Error('Consulta el ingreso para completar la ubicación de origen, o revisa y completa los datos manualmente.');return;}
   const query=movementOriginQuery();if(movementOriginKey(query)!==originStockState.key)return;
   const choices=InventoryStockCore.candidates(originStockState.data,query);
@@ -2224,7 +2258,7 @@ function initializeStockContext(){
   window.addEventListener('focus',()=>{movementOriginSchedule(true);if(document.getElementById('inventoryStockDialog').open)inventoryStockRefresh();});
 }
 const stockOriginalChangeMode=changeMovementMode;changeMovementMode=function(){const result=stockOriginalChangeMode();movementOriginSchedule();return result;};
-const stockOriginalFormChanged=movementFormChanged;movementFormChanged=function(){const result=stockOriginalFormChanged();if(['salida','traslado','consumo'].includes(movementMode())&&originStockState.loading)document.getElementById('registerMovementButton').disabled=true;return result;};
+const stockOriginalFormChanged=movementFormChanged;movementFormChanged=function(){const result=stockOriginalFormChanged();if(['salida','traslado','consumo'].includes(movementMode())&&(originStockState.loading||originStockState.selectingLot))document.getElementById('registerMovementButton').disabled=true;return result;};
 const stockOriginalSelect=selectProduct;selectProduct=function(product){const result=stockOriginalSelect(product);movementOriginSchedule();return result;};
 const stockOriginalUseScan=useScannedMovement;useScannedMovement=function(mode){const result=stockOriginalUseScan(mode);movementOriginSchedule(true);return result;};
 const stockOriginalNewMovement=newMovement;newMovement=async function(){const result=await stockOriginalNewMovement();movementOriginSchedule(true);return result;};
