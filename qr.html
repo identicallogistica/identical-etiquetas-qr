@@ -930,7 +930,23 @@ const LocalData={
 function notice(message){const box=document.getElementById('appNotice');if(box){box.textContent=message;box.classList.toggle('show',Boolean(message));}}
 function readStored(key,fallback){return LocalData.read(key,fallback);}
 function loadNativeProfiles(){const out=JSON.parse(JSON.stringify(DEFAULT_NATIVE_PROFILES));try{const stored=JSON.parse(localStorage.getItem(STORAGE_KEYS.profiles)||'{}');for(const size of Object.keys(out)){for(const key of Object.keys(out[size])){const v=stored[size]&&stored[size][key];if(typeof v==='number'&&Number.isFinite(v)&&Math.abs(v)<=2000)out[size][key]=v;}}}catch(e){}return out;}
-function normalizeProducts(items){if(!Array.isArray(items))return [];return items.filter(p=>p&&typeof p==='object'&&p.code&&p.desc).map(p=>({id:String(p.id||''),code:String(p.code),desc:String(p.desc),um:String(p.um||''),type:String(p.type||'')}));}
+function normalizeProducts(items){
+  if(!Array.isArray(items))return [];
+  return items.filter(p=>p&&typeof p==='object'&&p.code&&p.desc).map(p=>{
+    const product={id:String(p.id||''),code:String(p.code),desc:String(p.desc),um:String(p.um||''),type:String(p.type||'')};
+    const legacyCodes=normalizeLegacyCodes(product.code,p.legacyCodes);
+    if(legacyCodes.length)product.legacyCodes=legacyCodes;
+    return product;
+  });
+}
+
+function normalizeLegacyCodes(code, aliases) {
+  const canonical=norm(code);
+  if(!/^[A-Z0-9]{8}$/.test(canonical)||!Array.isArray(aliases))return [];
+  return [...new Set(aliases.map(norm).filter(alias=>
+    /^[A-Z0-9]{9}$/.test(alias)&&Array.from(alias).some((ch,i)=>
+      ch==='0'&&alias.slice(0,i)+alias.slice(i+1)===canonical)))];
+}
 function quantity(strict=false){const n=Number(document.getElementById('qtyField').value);if(!Number.isSafeInteger(n)||n<1){if(strict)throw Error('La cantidad debe ser un número entero mayor que cero.');return 1;}return n;}
 function currentSize(){if(printMode!=='temporary')return printMode;return {one:'large',two:'medium',four:'small',six:'mini'}[tempMode]||'large';}
 function profileErrors(p){if(!p.width||!p.height)return 'Define el ancho y alto reales del rollo para este formato.';if(p.width<=0||p.height<=0||p.width>1000||p.height>1778)return 'El ancho y alto deben ser mayores que cero y estar dentro del tamaño admitido por tu impresora.';if([p.mt,p.mr,p.mb,p.ml].some(v=>v<0))return 'Los márgenes no pueden ser negativos.';if([p.qr,p.codeFont,p.descFont,p.metaFont,p.logoW,p.logoH].some(v=>!(v>0)))return 'El QR, los textos y el logo deben tener tamaños mayores que cero.';const usable=p.width-p.ml-p.mr-2*Math.abs(p.offset);if(usable<=0||p.qr>usable||p.logoW>usable||p.height-p.mt-p.mb<=p.qr+p.logoH+p.codeFont+p.descFont+p.metaFont+.8)return 'El contenido no cabe en estas medidas. Reduce márgenes o tamaños, o elige un rollo más grande.';return '';}
@@ -1146,7 +1162,21 @@ function scannerKey(e){if(e.key==='Enter'){e.preventDefault();const value=e.targ
 
 function parseQR(text){const o={};String(text||'').trim().replace(/^\]Q[0-9]/,'').split('|').forEach(part=>{const i=part.indexOf('=');if(i>0){const key=part.slice(0,i).trim().toUpperCase();if(['COD','ID','LOTE','VENCE'].includes(key))o[key]=decodeQrValue(part.slice(i+1).trim());}});return o;}
 
-function processScan(text){const q=parseQR(text),box=document.getElementById('scanResult');box.classList.add('show');if(!q.COD&&!q.ID){box.textContent='El QR no contiene un código o ID Master reconocido.';return false;}const p=products.find(x=>q.COD&&norm(x.code)===norm(q.COD))||products.find(x=>q.ID&&norm(x.id)===norm(q.ID));const values=[['Código',q.COD||p&&p.code||''],['Producto',p?p.desc:sharedState.enabled?'Producto no encontrado en la base compartida. Toca Actualizar en Productos.':'No encontrado. Carga la base de productos de este equipo.'],['ID Master',q.ID||p&&p.id||''],['Lote',q.LOTE||'—'],['Vencimiento',q.VENCE?compactDate(q.VENCE):'—']];box.innerHTML='<table>'+values.map(([name,value])=>'<tr><td>'+name+'</td><td>'+esc(value)+'</td></tr>').join('')+'</table>';return true;}
+function resolveScannedProduct(q,catalog=products) {
+  const code=norm(q.COD),id=norm(q.ID);
+  const byId=id?catalog.filter(product=>norm(product.id)===id):[];
+  if(byId.length>1)return null;
+  if(!code)return byId[0]||null;
+  const matches=catalog.filter(product=>
+    norm(product.code)===code||product.legacyCodes?.includes(code));
+  if(matches.length!==1)return null;
+  const product=matches[0];
+  if(byId.length&&byId[0]!==product)return null;
+  if(norm(product.code)!==code&&id&&norm(product.id)!==id)return null;
+  return product;
+}
+
+function processScan(text){const q=parseQR(text),box=document.getElementById('scanResult');box.classList.add('show');if(!q.COD&&!q.ID){box.textContent='El QR no contiene un código o ID Master reconocido.';return false;}const p=resolveScannedProduct(q);if(!p){box.textContent='No se pudo vincular este QR a un producto. Actualiza PRODUCTOS o revisa su equivalencia.';return false;}const values=[['Código',p.code],['Producto',p.desc],['ID Master',p.id||q.ID||''],['Lote',q.LOTE||'—'],['Vencimiento',q.VENCE?compactDate(q.VENCE):'—']];box.innerHTML='<table>'+values.map(([name,value])=>'<tr><td>'+name+'</td><td>'+esc(value)+'</td></tr>').join('')+'</table>';return true;}
 
 
 
@@ -2069,7 +2099,7 @@ const movementOriginalSelect=selectProduct;selectProduct=function(product){const
 const movementOriginalApplyProducts=applySharedProducts;applySharedProducts=function(items,data){const field=document.getElementById('searchInput'),previous=selectedProduct,selectedText=previous&&field.value===previous.code+' · '+previous.desc;const result=movementOriginalApplyProducts(items,data);if(selectedText&&selectedProduct)field.value=selectedProduct.code+' · '+selectedProduct.desc;movementUpdateUnit(selectedProduct);movementFormChanged();return result;};
 const movementOriginalScan=processScan;
 processScan=function(text){const ok=movementOriginalScan(text);movementState.scan=ok?parseQR(text):null;if(ok){const box=document.getElementById('scanResult'),actions=document.createElement('div');actions.className='actions';for(const [mode,title] of [['ingreso','Registrar ingreso'],['salida','Salida a sede'],['consumo','Salida por uso'],['traslado','Traslado entre sedes'],['etiqueta','Solo etiqueta'],['stock','Ver stock']]){const button=document.createElement('button');button.type='button';button.className='btn btn-blue';button.textContent=title;button.onclick=()=>mode==='stock'?showScannedStock():useScannedMovement(mode);actions.appendChild(button);}box.appendChild(actions);}return ok;};
-function useScannedMovement(mode){const q=movementState.scan;if(!q)return;const p=products.find(p=>q.COD&&norm(p.code)===norm(q.COD))||products.find(p=>q.ID&&norm(p.id)===norm(q.ID));if(!p){notice('Actualiza PRODUCTOS para reconocer el producto.');return;}selectProduct(p);document.getElementById('lotField').value=q.LOTE||'';document.getElementById('expiryField').value=/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'';document.getElementById('movementMode').value=mode;document.getElementById('movementAmount').value='';movementState.lastSignature='';changeMovementMode();openPage('labels');renderDesignEditor();updatePreview();document.getElementById(mode==='etiqueta'?'qtyField':'movementAmount').focus();notice('QR cargado. Completa la cantidad y los datos del movimiento.');}
+function useScannedMovement(mode){const q=movementState.scan;if(!q)return;const p=resolveScannedProduct(q);if(!p){notice('Actualiza PRODUCTOS para reconocer el producto.');return;}selectProduct(p);document.getElementById('lotField').value=q.LOTE||'';document.getElementById('expiryField').value=/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'';document.getElementById('movementMode').value=mode;document.getElementById('movementAmount').value='';movementState.lastSignature='';changeMovementMode();openPage('labels');renderDesignEditor();updatePreview();document.getElementById(mode==='etiqueta'?'qtyField':'movementAmount').focus();notice('QR cargado. Completa la cantidad y los datos del movimiento.');}
 function initializeMovements(){
   movementInputs.concat(['lotField','expiryField','qtyField']).forEach(id=>document.getElementById(id).addEventListener('input',movementFormChanged));document.getElementById('movementMode').addEventListener('change',changeMovementMode);movementUpdateUnit(selectedProduct);changeMovementMode();document.querySelectorAll('button[onclick="connectQrHistory()"]:not(#retryMovementButton)').forEach(b=>b.textContent='Reintentar conexión');
   window.addEventListener('identical-google-ready',()=>{movementQueueSummary();movementSyncPending();movementRefreshLast();});window.addEventListener('identical-queue-updated',movementQueueSummary);window.addEventListener('online',()=>{historyFlush();movementSyncPending();});window.addEventListener('focus',()=>{movementSyncPending();movementRefreshLast(true);});
@@ -2219,7 +2249,7 @@ function movementCheckOriginSelection(data){
   if(choices.length>1&&!choices.some(p=>InventoryStockCore.key(p.location)===InventoryStockCore.key(data.location)))throw Error('Elige una ubicación de origen entre las que tienen stock para este lote.');
   const reference=document.getElementById('movementOriginReferenceChoice');if(!document.getElementById('movementOriginReferenceChoiceCell').hidden&&reference.value===''&&(!originStockState.dirty.has('movementPack')||!originStockState.dirty.has('movementDocument')))throw Error('Elige el ingreso de referencia para completar el empaque y documento, o revisa ambos campos manualmente.');
 }
-function inventoryStockQueryFromScan(){const q=movementState.scan;if(!q)return null;const p=products.find(p=>q.COD&&norm(p.code)===norm(q.COD))||products.find(p=>q.ID&&norm(p.id)===norm(q.ID));return {code:p?p.code:q.COD||'',description:p?p.desc:'',lot:q.LOTE||'',exp:/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'',hasLot:Object.prototype.hasOwnProperty.call(q,'LOTE')};}
+function inventoryStockQueryFromScan(){const q=movementState.scan;if(!q)return null;const p=resolveScannedProduct(q);if(!p)return null;return {code:p.code,description:p.desc,lot:q.LOTE||'',exp:/^\d{8}$/.test(q.VENCE||'')?q.VENCE.slice(0,4)+'-'+q.VENCE.slice(4,6)+'-'+q.VENCE.slice(6,8):'',hasLot:Object.prototype.hasOwnProperty.call(q,'LOTE')};}
 function showScannedStock(){const query=inventoryStockQueryFromScan();if(!query||!query.code){notice('Actualiza PRODUCTOS para reconocer el código de este QR.');return;}inventoryStockOpen(query);}
 function inventoryStockOpen(query){
   stockViewState.sequence++;stockViewState.query={...query};stockViewState.data=null;
