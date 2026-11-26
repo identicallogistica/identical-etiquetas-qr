@@ -98,7 +98,7 @@ function home(){
 }
 function makeQR(options){
   const box=el('div','qr-heading'),head=el('div');head.append(el('h1','','Etiquetas y movimientos QR'));box.append(head);root.append(box);
-  const frame=el('iframe','qr-frame');frame.title='Escáner, etiquetas y registro de movimientos';frame.allow='camera; clipboard-write; web-share';frame.setAttribute('allowfullscreen','');const src=new URL('./qr.html',location.href);
+  const frame=el('iframe','qr-frame');frame.title='Escáner, etiquetas y registro de movimientos';frame.allow='camera; clipboard-write; web-share';frame.setAttribute('allowfullscreen','');const src=new URL('./qr.html?v=20261126-qr8',location.href);
   for(const k of ['section','code','warehouse','lot','location','exp'])if(options[k])src.searchParams.set(k,options[k]);qrFrame=frame;frame.src=src.href;root.append(frame);
 }
 function go(key='home',options={},push=true){

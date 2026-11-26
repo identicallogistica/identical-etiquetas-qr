@@ -1167,12 +1167,20 @@ function resolveScannedProduct(q,catalog=products) {
   const byId=id?catalog.filter(product=>norm(product.id)===id):[];
   if(byId.length>1)return null;
   if(!code)return byId[0]||null;
-  const matches=catalog.filter(product=>
-    norm(product.code)===code||product.legacyCodes?.includes(code));
+
+  // Keep the original prefix and suffix of a migrated product code.
+  const shortened=code.length===9?code.replace(/^([A-Z]+|\d{2})0(\d+)$/,'$1$2'):code;
+  const migrated=shortened!==code;
+  const matches=catalog.filter(product=>{
+    const current=norm(product.code);
+    return current===code||product.legacyCodes?.includes(code)||(migrated&&current===shortened);
+  });
   if(matches.length!==1)return null;
-  const product=matches[0];
+
+  const product=matches[0],current=norm(product.code),currentId=norm(product.id);
   if(byId.length&&byId[0]!==product)return null;
-  if(norm(product.code)!==code&&id&&norm(product.id)!==id)return null;
+  if(migrated&&current===code)return null;
+  if(current!==code&&id!==currentId&&/^PRD-/.test(id)&&/^PRD-/.test(currentId))return null;
   return product;
 }
 
